@@ -1,0 +1,5 @@
+Data;Descricao;Documento;Valor;Saldo
+01/10/2023;Transferencia Pix Recebida;PIX1001;1500,00;1500,00
+05/10/2023;Pagamento Fatura Cartao;PAG2002;-450,20;1049,80
+12/10/2023;Padaria Doce Pao;DEB3003;-24,50;1025,30
+20/10/2023;Rendimento Nubank RDB;RDB4004;12,45;1037,75

@@ -1,0 +1,186 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 2016 >>
+stream
+0.12 0.16 0.23 rg
+0 760 595.28 82 re f
+BT
+/F2 16 Tf
+1 1 1 rg
+30 805 Td
+(EXTRATO FINANCEIRO CONSOLIDADO) Tj
+ET
+BT
+/F1 9 Tf
+0.75 0.85 0.95 rg
+30 782 Td
+(Banco: N/D \(341\)  |  Ag: 0500  |  CC: 12345-6  |  Periodo: 2023-10-01 a 2023-10-31) Tj
+ET
+0.94 0.98 0.95 rg
+30 705 165 42 re f
+0.06 0.58 0.35 rg
+30 705 3 42 re f
+BT
+/F1 8 Tf
+0.3 0.4 0.3 rg
+40 733 Td
+(TOTAL CREDITOS) Tj
+ET
+BT
+/F2 11 Tf
+0.06 0.58 0.35 rg
+40 715 Td
+(R$ 4.500,00) Tj
+ET
+0.99 0.95 0.95 rg
+210 705 165 42 re f
+0.85 0.2 0.2 rg
+210 705 3 42 re f
+BT
+/F1 8 Tf
+0.5 0.3 0.3 rg
+220 733 Td
+(TOTAL DEBITOS) Tj
+ET
+BT
+/F2 11 Tf
+0.85 0.2 0.2 rg
+220 715 Td
+(R$ 430,50) Tj
+ET
+0.95 0.96 0.98 rg
+390 705 175 42 re f
+0.2 0.3 0.5 rg
+390 705 3 42 re f
+BT
+/F1 8 Tf
+0.3 0.3 0.4 rg
+400 733 Td
+(FLUXO LIQUIDO) Tj
+ET
+BT
+/F2 11 Tf
+0.06 0.58 0.35 rg
+400 715 Td
+(R$ 4.069,50) Tj
+ET
+0.18 0.24 0.35 rg
+30 675 535 20 re f
+BT
+/F2 8 Tf
+1 1 1 rg
+35 681 Td
+(DATA) Tj
+95 681 Td
+(HISTORICO / DESCRICAO) Tj
+320 681 Td
+(DOCUMENTO) Tj
+390 681 Td
+(TIPO) Tj
+450 681 Td
+(VALOR (R$)) Tj
+520 681 Td
+(SALDO) Tj
+ET
+0.9 0.92 0.94 rg
+0.5 w
+30 657 m 565 657 l S
+BT
+/F1 8 Tf
+0.15 0.15 0.2 rg
+35 661 Td
+(05/10/2023) Tj
+95 661 Td
+(TED RECEBIDO SALARIO) Tj
+320 661 Td
+(ITAU001) Tj
+390 661 Td
+(CRED) Tj
+450 661 Td
+(4.500,00 C) Tj
+ET
+0.96 0.97 0.98 rg
+30 641 535 16 re f
+0.9 0.92 0.94 rg
+0.5 w
+30 641 m 565 641 l S
+BT
+/F1 8 Tf
+0.15 0.15 0.2 rg
+35 645 Td
+(10/10/2023) Tj
+95 645 Td
+(CONDOMINIO RESIDENCIAL) Tj
+320 645 Td
+(ITAU002) Tj
+390 645 Td
+(DEB) Tj
+450 645 Td
+(-320,00 D) Tj
+ET
+0.9 0.92 0.94 rg
+0.5 w
+30 625 m 565 625 l S
+BT
+/F1 8 Tf
+0.15 0.15 0.2 rg
+35 629 Td
+(18/10/2023) Tj
+95 629 Td
+(CLARO INTERNET FIBRA) Tj
+320 629 Td
+(ITAU003) Tj
+390 629 Td
+(DEB) Tj
+450 629 Td
+(-110,50 D) Tj
+ET
+0.95 0.96 0.98 rg
+30 25 535 30 re f
+0.7 0.75 0.8 rg
+0.5 w
+30 25 535 30 re S
+BT
+/F2 7 Tf
+0.2 0.3 0.4 rg
+40 42 Td
+(INTEGRIDADE CRIPTOGRAFICA SHA-256: 6330b0992215bcfaca5f1a8aa4fdbf3a...) Tj
+ET
+BT
+/F1 7 Tf
+0.4 0.5 0.5 rg
+40 32 Td
+(Verificacao de paridade e reconciliacao contabil concluida com zero discrepancias.) Tj
+ET
+
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000257 00000 n 
+0000002325 00000 n 
+0000002395 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+2470
+%%EOF

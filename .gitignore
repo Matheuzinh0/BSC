@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+bin/
+lib/
+*.o
+*.a
+*.so
+*.out
+
+# Generated conversion output
+dist/
+
+# System / IDE
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
