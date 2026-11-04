@@ -16,3 +16,9 @@ dist/
 *.swp
 *~
 .DS_Store
+
+# AI Agent & Assistant local configurations
+.agent/
+.agents/
+AGENTS.md
+GEMINI.md
