@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="48" fill="#161b22"/>
+  <circle cx="128" cy="128" r="96" fill="#0d1117" stroke="#00b4d8" stroke-width="6"/>
+  <path d="M72 96h112v16H72zM72 128h80v16H72zM72 160h112v16H72z" fill="#e6edf3"/>
+  <path d="M176 136l24 24-24 24v-16h-40v-16h40z" fill="#00e5ff"/>
+  <text x="128" y="74" font-family="DejaVu Sans, sans-serif" font-size="28" font-weight="bold" fill="#00b4d8" text-anchor="middle">BSC</text>
+</svg>

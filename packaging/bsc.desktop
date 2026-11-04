@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=BSC
+GenericName=Bank Statement Conversion
+Comment=Conversor universal de extratos bancarios (PDF, OFX, CSV, XLSX, QIF)
+Exec=BSC
+Icon=bsc
+Terminal=false
+Type=Application
+Categories=Office;Finance;Utility;
+Keywords=bank;statement;ofx;pdf;csv;xlsx;qif;converter;
+StartupNotify=true

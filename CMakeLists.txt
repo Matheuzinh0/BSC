@@ -21,7 +21,7 @@ set(SYSROOT_DIR "$ENV{HOME}/.local/sysroot")
 if(EXISTS "${SYSROOT_DIR}/usr/include")
     include_directories("${SYSROOT_DIR}/usr/include")
     link_directories("${SYSROOT_DIR}/usr/lib/x86_64-linux-gnu")
-    set(CMAKE_INSTALL_RPATH "${SYSROOT_DIR}/usr/lib/x86_64-linux-gnu")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN;$ORIGIN/../lib;/usr/lib/x86_64-linux-gnu;/usr/lib64;/usr/lib;${SYSROOT_DIR}/usr/lib/x86_64-linux-gnu")
     set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 

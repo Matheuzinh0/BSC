@@ -46,7 +46,55 @@ Formatos suportados:
 
 ---
 
-### 4. Compilacao
+### 4. Download e Instalacao Rapida (Pacotes Prontos para Uso)
+
+Os pacotes binarios pre-compilados estao disponiveis tanto na aba [Releases](https://github.com/Matheuzinh0/BSC/releases) do GitHub quanto diretamente na pasta [`releases/`](file:///home/matheus/Documentos/OFX/releases) do repositorio:
+
+| Sistema Operacional | Formato do Pacote | Arquitetura | Link Direto para Download | Como Usar / Instalar |
+| :--- | :--- | :--- | :--- | :--- |
+| **Windows** (11, 10, 8, 7) | ZIP Portatil | x86 (32/64-bit) | [bsc-2.5.0-windows-x86.zip](https://github.com/Matheuzinh0/BSC/releases/download/v2.5.0/bsc-2.5.0-windows-x86.zip) | Descompactar e dar dois cliques em `BSC.exe` |
+| **Ubuntu / Debian / Mint** | Pacote `.deb` | x86_64 | [bsc_2.5.0_amd64.deb](https://github.com/Matheuzinh0/BSC/releases/download/v2.5.0/bsc_2.5.0_amd64.deb) | `sudo dpkg -i bsc_2.5.0_amd64.deb` |
+| **Fedora / RHEL / openSUSE**| Pacote `.rpm` | x86_64 | [bsc-2.5.0-1.x86_64.rpm](https://github.com/Matheuzinh0/BSC/releases/download/v2.5.0/bsc-2.5.0-1.x86_64.rpm) | `sudo rpm -ivh bsc-2.5.0-1.x86_64.rpm` |
+| **Linux Universal (Todas)**| Tarball Portatil | x86_64 | [bsc-2.5.0-linux-x86_64.tar.gz](https://github.com/Matheuzinh0/BSC/releases/download/v2.5.0/bsc-2.5.0-linux-x86_64.tar.gz) | Descompactar e executar `./BSC` (ou `./install.sh`) |
+
+#### Instrucoes Detalhadas para o Usuario:
+
+##### Windows:
+1. Baixe o arquivo `bsc-2.5.0-windows-x86.zip`.
+2. Clique com o botao direito e selecione "Extrair Tudo...".
+3. Abra a pasta extraida e de dois cliques em `BSC.exe`.
+   - Nao e necessario instalar drivers ou programas adicionais. O aplicativo roda diretamente em computadores antigos ou modernos.
+
+##### Ubuntu, Debian, Linux Mint e Pop!_OS:
+1. Baixe o arquivo `bsc_2.5.0_amd64.deb`.
+2. De dois cliques no arquivo para abrir com o instalador de programas da sua distribuicao, ou execute no terminal:
+   ```bash
+   sudo dpkg -i bsc_2.5.0_amd64.deb || sudo apt-get install -f -y
+   ```
+3. O atalho "BSC" aparecera automaticamente no menu de aplicativos do sistema.
+
+##### Fedora, Red Hat, openSUSE e Rocky Linux:
+1. Baixe o arquivo `bsc-2.5.0-1.x86_64.rpm`.
+2. Execute no terminal:
+   ```bash
+   sudo dnf install ./bsc-2.5.0-1.x86_64.rpm
+   # ou via rpm:
+   sudo rpm -ivh bsc-2.5.0-1.x86_64.rpm
+   ```
+
+##### Qualquer Distribuicao Linux (Sem Necessidade de Permissao de Administrador):
+1. Baixe o arquivo `bsc-2.5.0-linux-x86_64.tar.gz`.
+2. Extraia com o gerenciador de arquivos ou via terminal:
+   ```bash
+   tar -xzvf bsc-2.5.0-linux-x86_64.tar.gz
+   cd bsc-2.5.0-linux-x86_64
+   ./BSC
+   ```
+3. (Opcional) Para criar o atalho no menu de aplicativos, execute `./install.sh`.
+
+---
+
+### 5. Compilacao
 
 #### Requisitos
 - Compilador C++ com suporte a C++20 (`g++` >= 10 ou `clang++` >= 11)
@@ -71,9 +119,9 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-### 5. Modos de Uso
+### 6. Modos de Uso
 
-#### 5.1. Interface Grafica (GUI)
+#### 6.1. Interface Grafica (GUI)
 Interface moderna, escura e de baixa latencia com suporte a arrastar e soltar:
 ```bash
 ./build/BSC
@@ -82,7 +130,7 @@ Interface moderna, escura e de baixa latencia com suporte a arrastar e soltar:
 - **Inspecao de Transacoes**: Filtre, ordene e revise cada lancamento com identificador unico SHA-256.
 - **Selecao Multipla**: Escolha quais formatos de saida deseja gerar simultaneamente e clique em "INICIAR CONVERSAO EM LOTE".
 
-#### 5.2. Linha de Comando (Modo Batch Headless)
+#### 6.2. Linha de Comando (Modo Batch Headless)
 Ideal para scripts de conciliacao, servidores e automacoes:
 ```bash
 # Converter arquivos especificos para OFX, CSV e XLSX
@@ -94,7 +142,7 @@ Ideal para scripts de conciliacao, servidores e automacoes:
 
 ---
 
-### 6. Estrutura do Codigo-Fonte
+### 7. Estrutura do Codigo-Fonte
 
 ```
 .

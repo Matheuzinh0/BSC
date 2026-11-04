@@ -1,0 +1,15 @@
+Package: bsc
+Version: 2.5.0
+Architecture: amd64
+Maintainer: Matheus Sousa <matheus@ufpe.br>
+Installed-Size: 3200
+Depends: libc6 (>= 2.31), libgl1, libglfw3 (>= 3.3)
+Section: utils
+Priority: optional
+Homepage: https://github.com/Matheuzinh0/BSC
+Description: Bank Statement Conversion (BSC)
+ Ultra-lightweight and high-throughput financial statement conversion
+ engine (PDF, OFX, CSV, XLSX, QIF) with graphical user interface and
+ headless batch processing CLI.
+ Developed by Matheus Sousa, Laboratorio de Comunicacao e Seguranca
+ da Informacao, Departamento de Eletronica e Sistemas, CTG-UFPE.
