@@ -64,6 +64,7 @@ set(CORE_SOURCES
     src/encoders/XlsxEncoder.cpp
     src/encoders/QifEncoder.cpp
     src/encoders/PdfEncoder.cpp
+    src/ocr/OcrEngine.cpp
     src/converter/ConverterEngine.cpp
 )
 

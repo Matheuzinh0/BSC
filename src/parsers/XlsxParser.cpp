@@ -257,13 +257,20 @@ std::shared_ptr<core::Statement> XlsxParser::parse(const std::string& filePath) 
                    h.find("MEMO") != std::string::npos) {
             descCol = static_cast<int>(col);
         } else if (h.find("DOCUMENTO") != std::string::npos || h.find("DOC") != std::string::npos ||
-                   h.find("FITID") != std::string::npos) {
+                   h.find("FITID") != std::string::npos || h.find("CHECKNUM") != std::string::npos ||
+                   h.find("OPERACAO") != std::string::npos || h.find("OPERAÇÃO") != std::string::npos ||
+                   h.find("IDENTIFICADOR") != std::string::npos) {
             docCol = static_cast<int>(col);
-        } else if (h.find("DEBITO") != std::string::npos || h.find("DÉBITO") != std::string::npos) {
+        } else if (h.find("DEBITO") != std::string::npos || h.find("DÉBITO") != std::string::npos ||
+                   h.find("SAIDA") != std::string::npos || h.find("SAÍDA") != std::string::npos ||
+                   h.find("TARIFA") != std::string::npos) {
             debitCol = static_cast<int>(col);
-        } else if (h.find("CREDITO") != std::string::npos || h.find("CRÉDITO") != std::string::npos) {
+        } else if (h.find("CREDITO") != std::string::npos || h.find("CRÉDITO") != std::string::npos ||
+                   h.find("ENTRADA") != std::string::npos) {
             creditCol = static_cast<int>(col);
-        } else if (h.find("VALOR") != std::string::npos || h.find("AMOUNT") != std::string::npos) {
+        } else if (h.find("VALOR") != std::string::npos || h.find("AMOUNT") != std::string::npos ||
+                   h.find("LANCAMENTO") != std::string::npos || h.find("LANÇAMENTO") != std::string::npos ||
+                   h.find("LÍQUIDO") != std::string::npos || h.find("LIQUIDO") != std::string::npos) {
             amountCol = static_cast<int>(col);
         } else if (h.find("SALDO") != std::string::npos || h.find("BALANCE") != std::string::npos) {
             balanceCol = static_cast<int>(col);

@@ -28,7 +28,7 @@ O BSC implementa uma arquitetura baseada em Modelo Intermediario Canonico (IR). 
 | **QIF** | Sim | Sim | Sim | Sim | Sim |
 
 Formatos suportados:
-- **PDF**: Analise de streams textuais com suporte a layouts bancarios nacionais (Banco do Brasil, Itau, Bradesco, Santander, Caixa, Nubank, Inter, etc.) e geracao de relatorios vetoriais consolidados.
+- **PDF**: Analise inteligente de streams textuais com suporte a layouts bancarios nacionais (Banco do Brasil, Itau, Bradesco, Santander, Caixa, Nubank, Inter, Sicoob, Sicredi, BTG Pactual, Mercado Pago / Mercado Livre, etc.) e pipeline integrado de OCR (Optical Character Recognition) em C++ para processamento automatico de extratos digitalizados ou em formato raster/imagem. Geracao de relatorios vetoriais consolidados.
 - **OFX (Open Financial Exchange)**: Conformidade com versoes 1.02 (SGML) e 2.x (XML), compativel com QuickBooks, ContaAzul, Omie e ERPs contabeis.
 - **CSV (RFC 4180)**: Deteccao automatica de delimitador (ponto-e-virgula, virgula, tabulacao) e interpretacao de valores monetarios brasileiros e internacionais.
 - **XLSX (Microsoft Excel OpenXML)**: Leitura e gravacao nativa em C++ sem dependencias externas pesadas, incluindo celulas estilizadas, cores para debitos/creditos e somatorios.
@@ -38,6 +38,8 @@ Formatos suportados:
 
 ### 3. Principais Caracteristicas
 
+- **Pipeline Hibrido de Reconhecimento Optico (OCR)**: Motor OCR nativo em C++ integrado com binarizacao adaptativa por imagem integral (Bradley-Roth), segmentacao de linhas/glifos por perfis de projecao, classificacao topologica com analise de lacos fechados e correcao contextual automatica para extratos digitalizados/escaneados ou convertidos em imagem. Aceleracao transparente via Tesseract quando disponivel no sistema.
+- **Compatibilidade Completa com Fintechs e Mercado Livre**: Suporte nativo a extratos do Mercado Pago e Mercado Livre (codigo de compensacao 323), datas por extenso com preposicoes ("24 de outubro de 2023", "15 de out"), notacoes de valor com sinal invertido ("R$ -150,00"), identificadores de operacao (#...) e colunas de Entrada/Saida.
 - **Processamento Concorrente em Lote**: ThreadPool auto-adaptativo que dimensiona o paralelismo de acordo com os nucleos da CPU, processando centenas de extratos por segundo.
 - **Seguranca e Privacidade**: Operacao 100% local (air-gapped), sem conexoes de rede externas ou telemetria remota.
 - **Integridade Criptografica**: Geracao de hash SHA-256 para cada transacao e extrato consolidado, garantindo rastreabilidade, auditoria e desduplicao.
@@ -153,10 +155,18 @@ Ideal para scripts de conciliacao, servidores e automacoes:
 |   |-- converter              # Orquestrador central e lote (ConverterEngine)
 |   |-- core                   # Tipos canonicos, Hasher SHA-256, ThreadPool e utilitarios
 |   |-- encoders               # Codificadores de saida (PDF, OFX, CSV, XLSX, QIF)
+|   |-- ocr                    # Motor nativo de reconhecimento optico de caracteres em C++
 |   |-- parsers                # Analisadores sintaticos de entrada (PDF, OFX, CSV, XLSX, QIF)
 |   `-- ui                     # Interface grafica, tema e janelas (ImGui/GLFW)
-|-- samples                    # Extratos de teste para verificacao
+|-- releases                   # Pacotes de distribuicao (.deb, .rpm, .tar.gz, .zip)
+|-- scripts                    # Scripts de lote e geracao de extratos de teste
 |-- src                        # Implementacao dos modulos em C++
+|   |-- converter
+|   |-- core
+|   |-- encoders
+|   |-- ocr
+|   |-- parsers
+|   `-- ui
 |-- tests                      # Suite de testes de integridade e roundtrip
 `-- vendor                     # Dependencias amalgamadas (ImGui e Miniz)
 ```

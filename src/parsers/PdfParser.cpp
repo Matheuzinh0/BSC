@@ -8,6 +8,7 @@
 
 #include "parsers/PdfParser.hpp"
 #include "core/Utils.hpp"
+#include "ocr/OcrEngine.hpp"
 #include "miniz/miniz.h"
 #include <regex>
 #include <iostream>
@@ -267,6 +268,11 @@ void PdfParser::parseBankMetadata(const std::string& text, core::Statement& stat
         {"PAGBANK", "290", "PagBank - PagSeguro"},
         {"PAGSEGURO", "290", "PagBank - PagSeguro"},
         {"MERCADO PAGO", "323", "Mercado Pago IP Ltda"},
+        {"MERCADO LIVRE", "323", "Mercado Pago / Mercado Livre"},
+        {"MERCADOLIVRE", "323", "Mercado Pago / Mercado Livre"},
+        {"MERCADOPAGO", "323", "Mercado Pago IP Ltda"},
+        {"MERCADO ENVIOS", "323", "Mercado Pago / Mercado Livre"},
+        {"MERCADOLIBRE", "323", "Mercado Pago / Mercado Livre"},
         {"PICPAY", "380", "PicPay Servicos S.A."},
         {"STONE", "197", "Stone Pagamentos"},
         {"XP INVESTIMENTOS", "102", "XP Investimentos"},
@@ -347,16 +353,37 @@ void PdfParser::parseBankMetadata(const std::string& text, core::Statement& stat
 void PdfParser::parseTransactionsFromText(const std::string& text, core::Statement& statement) const {
     std::vector<std::string> lines = core::Utils::split(text, '\n');
 
-    std::regex dateRegex(R"(\b(\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}|\d{1,2}[\s\/\-\.](?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ|OCT|DEC)[\s\/\-\.]?(?:\d{2,4})?)\b)", std::regex::icase);
-    std::regex amtRegex(R"((?:[\+\-]\s*)?(?:R\$\s*)?\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?(?:\s*[CD\-])?(?!\/|\d)|(?:[\+\-]\s*)?(?:R\$\s*)?\(?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s*[CD\-])?(?!\/|\d))");
+    std::regex dateRegex(R"(\b(?:\d{1,2}(?:\s+de\s+|\s*[\/\-\.]\s*|\s+)(?:janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez|oct|dec)(?:\.?)?(?:(?:\s+de\s+|\s*[\/\-\.]\s*|\s+)\d{2,4})?|\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\b)", std::regex::icase);
+    std::regex amtRegex(R"((?:[\+\-]\s*(?:R\$\s*)?|(?:R\$\s*)[\+\-]\s*|(?:R\$\s*))?\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?(?:\s*[CD\-])?(?!\/|\d)|(?:[\+\-]\s*(?:R\$\s*)?|(?:R\$\s*)[\+\-]\s*|(?:R\$\s*))?\(?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s*[CD\-])?(?!\/|\d))");
 
     int currentYear = 2024;
+    bool creditFirst = false;
 
     for (const auto& rawLine : lines) {
         std::string line = core::Utils::trim(rawLine);
         if (line.size() < 4) continue;
 
         std::string upLine = core::Utils::toUpper(line);
+
+        // Detect column order from table header (e.g. Entrada/Saída vs Débito/Crédito)
+        if (upLine.find("DATA") != std::string::npos || upLine.find("ENTRADA") != std::string::npos || 
+            upLine.find("CREDITO") != std::string::npos || upLine.find("DEBITO") != std::string::npos) {
+            size_t posCred = std::string::npos;
+            size_t posDeb = std::string::npos;
+
+            if (upLine.find("ENTRADA") != std::string::npos) posCred = upLine.find("ENTRADA");
+            else if (upLine.find("CREDITO") != std::string::npos) posCred = upLine.find("CREDITO");
+            else if (upLine.find("CRÉDITO") != std::string::npos) posCred = upLine.find("CRÉDITO");
+
+            if (upLine.find("SAIDA") != std::string::npos) posDeb = upLine.find("SAIDA");
+            else if (upLine.find("SAÍDA") != std::string::npos) posDeb = upLine.find("SAÍDA");
+            else if (upLine.find("DEBITO") != std::string::npos) posDeb = upLine.find("DEBITO");
+            else if (upLine.find("DÉBITO") != std::string::npos) posDeb = upLine.find("DÉBITO");
+
+            if (posCred != std::string::npos && posDeb != std::string::npos) {
+                creditFirst = (posCred < posDeb);
+            }
+        }
 
         // Filter initial / final balances from table
         if (upLine.find("SALDO ANTERIOR") != std::string::npos || 
@@ -422,15 +449,24 @@ void PdfParser::parseTransactionsFromText(const std::string& text, core::Stateme
                 tx.amount = core::Utils::parseAmount(amtMatches[0].str());
                 tx.runningBalance = core::Utils::parseAmount(amtMatches[1].str());
             } else if (amtMatches.size() >= 3) {
-                // Columns [Débito, Crédito, Saldo]
                 double val1 = std::abs(core::Utils::parseAmount(amtMatches[0].str()));
                 double val2 = std::abs(core::Utils::parseAmount(amtMatches[1].str()));
-                if (val2 > 0.0) {
-                    tx.amount = val2;
-                } else if (val1 > 0.0) {
-                    tx.amount = -val1;
+                if (creditFirst) {
+                    // Columns: [Entrada/Crédito, Saída/Débito, Saldo]
+                    if (val1 > 0.0) {
+                        tx.amount = val1;
+                    } else if (val2 > 0.0) {
+                        tx.amount = -val2;
+                    }
+                } else {
+                    // Columns: [Saída/Débito, Entrada/Crédito, Saldo]
+                    if (val2 > 0.0) {
+                        tx.amount = val2;
+                    } else if (val1 > 0.0) {
+                        tx.amount = -val1;
+                    }
                 }
-                tx.runningBalance = core::Utils::parseAmount(amtMatches[2].str());
+                tx.runningBalance = core::Utils::parseAmount(amtMatches.back().str());
             }
 
             if (tx.amount > 0.0) tx.type = core::TransactionType::CREDIT;
@@ -511,9 +547,23 @@ std::shared_ptr<core::Statement> PdfParser::parse(const std::string& filePath) c
         return statement;
     }
 
+    // Step 1: Attempt ultra-fast vector text stream extraction
     std::string text = extractRawTextFromPdf(bytes);
     auto statement = parseFromText(text);
     statement->sourceFilePath = filePath;
+
+    // Step 2: If no transactions detected (scanned PDF, raster image, or missing text streams), trigger OCR pipeline
+    if (statement->transactions.empty()) {
+        std::string ocrText = ocr::OcrEngine::instance().extractAndRecognizePdf(filePath, bytes);
+        if (!ocrText.empty()) {
+            auto ocrStatement = parseFromText(ocrText);
+            ocrStatement->sourceFilePath = filePath;
+            if (!ocrStatement->transactions.empty()) {
+                return ocrStatement;
+            }
+        }
+    }
+
     return statement;
 }
 

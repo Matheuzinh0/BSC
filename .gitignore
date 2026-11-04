@@ -22,5 +22,6 @@ test_batch/
 # AI Agent & Assistant local configurations
 .agent/
 .agents/
+.gemini/
 AGENTS.md
 GEMINI.md

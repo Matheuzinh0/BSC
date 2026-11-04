@@ -26,6 +26,7 @@ BANKS = [
     {"name": "Bancoob - Sicoob", "code": "756", "prefix": "SICOOB"},
     {"name": "Banco Sicredi", "code": "748", "prefix": "SICREDI"},
     {"name": "Banco BTG Pactual", "code": "208", "prefix": "BTG"},
+    {"name": "Mercado Pago / Mercado Livre", "code": "323", "prefix": "MERCADOPAGO"},
 ]
 
 TRANSACTIONS_POOL = [
@@ -41,6 +42,9 @@ TRANSACTIONS_POOL = [
     ("COMPRA FARMACIA POPULAR SAUDE", -67.30, "DEBIT"),
     ("REEMBOLSO DESPESAS CORPORATIVAS", 345.50, "CREDIT"),
     ("TARIFA MENSALIDADE PACOTE DE SERVICOS", -29.90, "DEBIT"),
+    ("VENDA MERCADO LIVRE PRODUTO #718293", 320.00, "CREDIT"),
+    ("TARIFA DE ENVIO MERCADO ENVIOS", -34.90, "DEBIT"),
+    ("RENDIMENTO DE CONTA MERCADO PAGO", 12.80, "CREDIT"),
 ]
 
 def generate_csv(file_path, bank, tx_count=10):

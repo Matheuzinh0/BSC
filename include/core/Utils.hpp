@@ -61,42 +61,47 @@ public:
         return tokens;
     }
 
-    // Parse financial amounts resiliently (e.g. "R$ 1.250,50 D", "-1250.50", "(50,00)", "150,00-")
+    // Parse financial amounts resiliently (e.g. "R$ 1.250,50 D", "-1250.50", "R$ -150,00", "(50,00)", "150,00-")
     static double parseAmount(std::string_view raw) {
         std::string s = trim(raw);
         if (s.empty()) return 0.0;
 
         bool isNegative = false;
 
-        // Check parentheses: (100.00) => negative
+        // Check parentheses: (100.00) or (R$ 100,00) => negative
         if (s.front() == '(' && s.back() == ')') {
             isNegative = true;
             s = s.substr(1, s.size() - 2);
+            s = trim(s);
         }
 
-        // Check trailing or leading minus
-        if (!s.empty() && s.front() == '-') {
-            isNegative = true;
-            s = s.substr(1);
-        }
+        // Check trailing minus: 100,00-
         if (!s.empty() && s.back() == '-') {
             isNegative = true;
             s.pop_back();
+            s = trim(s);
         }
 
         // Check trailing 'D' (Débito) or 'C' (Crédito)
-        s = trim(s);
         if (!s.empty()) {
             char last = static_cast<char>(std::toupper(static_cast<unsigned char>(s.back())));
             if (last == 'D') {
                 isNegative = true;
                 s.pop_back();
+                s = trim(s);
             } else if (last == 'C') {
                 s.pop_back();
+                s = trim(s);
             }
         }
 
-        s = trim(s);
+        // Check leading or embedded minus sign before numeric digits (e.g. "-100", "-R$ 100", "R$ -100", "R$-100")
+        size_t minusPos = s.find('-');
+        size_t firstDigit = s.find_first_of("0123456789");
+        if (minusPos != std::string::npos && (firstDigit == std::string::npos || minusPos < firstDigit)) {
+            isNegative = true;
+        }
+
         // Strip out non-numeric chars except '.' and ','
         std::string clean;
         clean.reserve(s.size());
@@ -164,8 +169,8 @@ public:
             return y + "-" + m + "-" + d;
         }
 
-        // Textual month date: e.g. "15 OUT 2023", "15-OUT-2023", "15/OUT/2023", "15 OUT"
-        std::regex textMonthRegex(R"(^(\d{1,2})[\s\/\-\.]([A-Za-z]{3,4})(?:[\s\/\-\.](\d{2,4}))?)", std::regex::icase);
+        // Textual month date: e.g. "24 de outubro de 2023", "24 de out. de 2023", "15 OUT 2023", "15-OUT-2023", "15/OUT/2023", "15 OUT"
+        std::regex textMonthRegex(R"(^(\d{1,2})(?:\s+de\s+|\s*[\/\-\.]\s*|\s+)([A-Za-zçÇáÁéÉíÍóÓúÚãÃõÕ]{3,10})(?:\.?)?(?:(?:\s+de\s+|\s*[\/\-\.]\s*|\s+)(\d{2,4}))?)", std::regex::icase);
         std::smatch tMatch;
         if (std::regex_search(s, tMatch, textMonthRegex)) {
             std::string d = tMatch[1].str();

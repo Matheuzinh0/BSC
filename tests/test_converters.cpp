@@ -10,6 +10,8 @@
 #include "core/Hasher.hpp"
 #include "core/Utils.hpp"
 #include "parsers/PdfParser.hpp"
+#include "parsers/CsvParser.hpp"
+#include "ocr/OcrEngine.hpp"
 #include "converter/ConverterEngine.hpp"
 #include <iostream>
 #include <cassert>
@@ -217,6 +219,79 @@ void testLayoutAgnosticPdfParsing() {
     ASSERT_TRUE(std::abs(stmtCoop->transactions[1].runningBalance.value() - 2400.00) < 0.001, "Running balance recognized");
 }
 
+void testMercadoLivreStatementParsing() {
+    std::cout << "\n--- TEST: Mercado Livre / Mercado Pago Statement Parser ---\n";
+    ofx::parsers::PdfParser parser;
+
+    // Test Case 1: Mercado Pago with prepositional dates and signed currency (R$ - / R$ +)
+    std::string mlPdfText =
+        "Mercado Pago Instituicao de Pagamento Ltda.\n"
+        "CNPJ: 10.573.521/0001-91\n"
+        "Extrato de Movimentacao de Conta\n"
+        "Agencia: 0001    Conta: 71829304-1\n"
+        "Data | Detalhe | Operacao | Entrada | Saida | Saldo\n"
+        "24 de outubro de 2023 Venda de produto #7182930415 R$ 250,00 R$ 0,00 R$ 1.500,00\n"
+        "24 de outubro de 2023 Tarifa de venda #7182930415 R$ 0,00 R$ 32,50 R$ 1.467,50\n"
+        "25 de outubro de 2023 Envio de Pix para Maria R$ 0,00 R$ 100,00 R$ 1.367,50\n"
+        "26 de outubro de 2023 Rendimento de conta R$ 4,85 R$ 0,00 R$ 1.372,35\n";
+
+    auto stmtML = parser.parseFromText(mlPdfText);
+    ASSERT_TRUE(stmtML != nullptr, "Parsed Mercado Livre statement");
+    ASSERT_TRUE(stmtML->account.bankId == "323", "Mercado Pago Bank ID is 323");
+    ASSERT_TRUE(stmtML->transactions.size() == 4, "Mercado Livre Transactions count is 4");
+    ASSERT_TRUE(stmtML->transactions[0].date == "2023-10-24", "Preposition date '24 de outubro de 2023' normalized to ISO");
+    ASSERT_TRUE(std::abs(stmtML->transactions[0].amount - 250.00) < 0.001, "Tx 1 credit is 250.00");
+    ASSERT_TRUE(std::abs(stmtML->transactions[1].amount - (-32.50)) < 0.001, "Tx 2 fee debit is -32.50");
+    ASSERT_TRUE(std::abs(stmtML->transactions[2].amount - (-100.00)) < 0.001, "Tx 3 Pix debit is -100.00");
+    ASSERT_TRUE(std::abs(stmtML->transactions[3].amount - 4.85) < 0.001, "Tx 4 Yield credit is 4.85");
+
+    // Test Case 2: Mercado Livre with abbreviated preposition dates and signed R$ - notation
+    std::string mlText2 =
+        "Mercado Livre / Mercado Pago\n"
+        "15 de out de 2023 Venda #998811 R$ 450,00\n"
+        "16 de out de 2023 Tarifa de envio Mercado Envios R$ -45,90\n"
+        "18 de out de 2023 Pagamento com saldo Mercado Pago R$ -120,00\n";
+
+    auto stmtML2 = parser.parseFromText(mlText2);
+    ASSERT_TRUE(stmtML2 != nullptr, "Parsed Mercado Livre statement abbreviated format");
+    ASSERT_TRUE(stmtML2->account.bankId == "323", "Matched 323 for Mercado Livre");
+    ASSERT_TRUE(stmtML2->transactions.size() == 3, "Abbreviated date transactions count is 3");
+    ASSERT_TRUE(stmtML2->transactions[0].date == "2023-10-15", "Abbreviated date '15 de out de 2023' normalized");
+    ASSERT_TRUE(std::abs(stmtML2->transactions[1].amount - (-45.90)) < 0.001, "R$ -45,90 parsed as negative debit");
+    ASSERT_TRUE(std::abs(stmtML2->transactions[2].amount - (-120.00)) < 0.001, "R$ -120,00 parsed as negative debit");
+
+    // Test Case 3: Mercado Pago CSV format
+    std::string csvData =
+        "DATA;OPERAÇÃO;DETALHE;VALOR BRUTO;TARIFA;VALOR LÍQUIDO;SALDO\n"
+        "2023-10-24 14:30:00;7182930415;Venda de produto;250,00;-32,50;217,50;1467,50\n"
+        "2023-10-25 09:15:00;7182930416;Envio de dinheiro Pix;0,00;-100,00;-100,00;1367,50\n";
+    std::string tmpCsv = "/tmp/test_ml.csv";
+    ofx::core::Utils::writeFileString(tmpCsv, csvData);
+    ofx::parsers::CsvParser csvParser;
+    auto stmtCsv = csvParser.parse(tmpCsv);
+    ASSERT_TRUE(stmtCsv != nullptr && stmtCsv->transactions.size() == 2, "Mercado Pago CSV parsed with 2 transactions");
+    std::remove(tmpCsv.c_str());
+}
+
+void testIntegratedOcrEngine() {
+    std::cout << "\n--- TEST: Integrated Native C++ OCR Engine ---\n";
+    auto& ocr = ofx::ocr::OcrEngine::instance();
+
+    std::cout << "[*] System Tesseract available: " << (ocr.isSystemOcrAvailable() ? "SIM" : "NAO (Usando Motor Nativo C++)") << "\n";
+
+    // Test blank image handling
+    int w = 240, h = 40;
+    std::vector<uint8_t> gray(w * h, 255); // White background
+    std::string text = ocr.recognizeGrayscale(gray.data(), w, h);
+    ASSERT_TRUE(text.empty(), "Blank page produces empty OCR string");
+
+    // Test domain correction
+    std::string rawOcr = "MERCADO PAGO 24/1O/2O23 R $ 15O,OO";
+    std::string cleaned = ocr.postProcessFinancialText(rawOcr);
+    ASSERT_TRUE(cleaned.find("150,00") != std::string::npos, "Financial domain OCR correction '15O,OO' -> '150,00'");
+    ASSERT_TRUE(cleaned.find("24/10/2023") != std::string::npos, "Date domain OCR correction '24/1O/2O23' -> '24/10/2023'");
+}
+
 int main() {
     std::cout << "========================================================\n";
     std::cout << " EXECUTANDO BATERIA DE TESTES DE CONVERSAO UNIVERSAL\n";
@@ -226,6 +301,8 @@ int main() {
     testAmountAndDateParsing();
     testUniversalFormatRoundtrip();
     testLayoutAgnosticPdfParsing();
+    testMercadoLivreStatementParsing();
+    testIntegratedOcrEngine();
 
     std::cout << "\n[================ TODOS OS TESTES PASSARAM! ================]\n";
     return 0;
