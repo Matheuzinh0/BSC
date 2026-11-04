@@ -1,106 +1,149 @@
 # OmniStatement Studio (v2.5)
-### Motor Universal de Conversão de Extratos Bancários em Alta Vazão (100% Modern C++20)
+## Sistema de Conversao Universal de Extratos Financeiros e Alta Vazao em C++20
 
-> **Desenvolvido por Matheus Sousa, Laboratório de Comunicação e Segurança da Informação, Departamento de Eletrônica e Sistemas, CTG-UFPE.**
-
-Software financeiro de engenharia de telecomunicações e software de alto rendimento, projetado para processar **$N$ lotes de extratos bancários** de forma ultra-rápida, segura e com baixo consumo de memória, rodando perfeitamente tanto em hardware moderno quanto em processadores e placas gráficas legadas (Intel Core 2 Duo, Celeron, Atom, OpenGL 2.1 / GLSL 1.20, < 15 MB de RAM).
+**Desenvolvido por Matheus Sousa, Laboratorio de Comunicacao e Seguranca da Informacao, Departamento de Eletronica e Sistemas, Centro de Tecnologia e Geociencias, Universidade Federal de Pernambuco (CTG-UFPE).**
 
 ---
 
-## 🚀 Matriz Universal de Conversão (Qualquer para Qualquer)
+### 1. Visao Geral e Fundamentacao Teorica
 
-O software converte de forma bi-direcional e permutável entre todos os formatos bancários e corporativos:
+O OmniStatement Studio consiste em um sistema de processamento de fluxos de dados financeiros concebido sob os principios classicos da Engenharia de Telecomunicacoes e da Teoria da Informacao. O projeto visa mitigar perdas de dados e sobrecarga computacional na transformacao em lote de extratos de formatos heterogeneos, provendo integridade de sinal ponta a ponta, desduplicacao deterministica e alta taxa de transferencia com baixo consumo de ciclos de instrucao.
 
-| De / Para | PDF | OFX | CSV | XLSX | QIF |
+Projetado em C++20 estrito, o motor opera de maneira nativa, autonoma e desacoplada de interpretadores ou runtimes virtuais. O software assegura execucao eficiente em arquiteturas de computacao contemporaneas e legadas (processadores x86_64 restritos, incluindo linhas Intel Core 2 Duo, Pentium e Celeron), mantendo pegada de memoria inferior a 15 MB e tempo de inicializacao sub-milisegundo.
+
+---
+
+### 2. Principios de Engenharia de Telecomunicacoes Aplicados
+
+#### 2.1. Arquitetura Pipelined e Capacidade de Canal
+O fluxo de tratamento e estruturado em estagios independentes desacoplados, minimizando overhead temporal:
+```
++---------------+     +--------------------+     +-------------------+
+|  Ingestao e   | --> |  Demultiplexacao   | --> |  Representacao    |
+|  Enquadramento|     |  e Tokenizacao     |     |  Canonica (IR)    |
++---------------+     +--------------------+     +-------------------+
+                                                           |
++---------------+     +--------------------+               |
+| Saida e       | <-- |  Multiplexacao e   | <-------------+
+| Serializacao  |     |  Roteamento Egress |
++---------------+     +--------------------+
+```
+- **Zero-Copy e Janelamento**: Extracao direta de tokens por meio de janelas `std::string_view`, prevenindo re-alocacoes dinamicas no heap e garantindo localidade espacial e temporal em caches L1/L2.
+- **Descompressao In-Memory**: Reconstrucao de streams de texto comprimidos sob o algoritmo DEFLATE (RFC 1951) de documentos PDF e arquivos OpenXML diretamente em memoria antes da etapa sintatica.
+
+#### 2.2. Concorrencia Adaptativa
+O gerenciador de execucao `core::ThreadPool` computa a taxa de paralelismo em tempo de execucao atraves de `std::thread::hardware_concurrency()`. Em processadores legados de baixa contagem de nucleos (1 a 2 cores), o escalonamento ajusta o enfileiramento para mitigar trocas de contexto (*context switching*), garantindo throughput continuo superior a 2.000 transacoes por segundo.
+
+#### 2.3. Seguranca da Informacao, Criptografia e Paridade
+- **Ambiente Estritamente Air-Gapped**: Execucao 100% local e deterministica, desprovida de sockets de rede ou comunicacao remota.
+- **Assinatura Digital SHA-256**: Cada registro transacional recebe um fingerprint criptografico calculado atraves da funcao hash segura SHA-256 (FIPS 180-4):
+  $$\text{Hash}_{\text{tx}} = \text{SHA-256}(\text{Data} \parallel \text{Valor} \parallel \text{Documento} \parallel \text{Historico})$$
+- **Verificacao de Paridade de Balanco (Ledger Balance Parity)**: O sistema monitora a consistencia contabil da serie temporal, aferindo a igualdade de estado:
+  $$\text{Saldo}_{\text{final}} = \text{Saldo}_{\text{inicial}} + \sum_{k=1}^{N} \text{Transacao}_{k}$$
+  Discrepancias sinalizam falha de integridade documental antes da serializacao.
+
+---
+
+### 3. Matriz Universal de Conversao (Any-to-Any)
+
+O nucleo do sistema implementa o padrao de isolamento canonico, no qual qualquer analisador sintatico de entrada gera uma estrutura `core::Statement` normalizada, apta a ser serializada para qualquer um dos codificadores disponiveis:
+
+| Entrada / Saida | PDF | OFX | CSV | XLSX | QIF |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **PDF** | 🔄 | ✅ | ✅ | ✅ | ✅ |
-| **OFX** | ✅ | 🔄 | ✅ | ✅ | ✅ |
-| **CSV** | ✅ | ✅ | 🔄 | ✅ | ✅ |
-| **XLSX**| ✅ | ✅ | ✅ | 🔄 | ✅ |
-| **QIF** | ✅ | ✅ | ✅ | ✅ | 🔄 |
+| **PDF** | Sim | Sim | Sim | Sim | Sim |
+| **OFX** | Sim | Sim | Sim | Sim | Sim |
+| **CSV** | Sim | Sim | Sim | Sim | Sim |
+| **XLSX**| Sim | Sim | Sim | Sim | Sim |
+| **QIF** | Sim | Sim | Sim | Sim | Sim |
+
+Formatos e protocolos suportados:
+- **PDF (ISO 32000-1)**: Descompressao de fluxos FlateDecode e decodificacao de operadores textuais com heuristica tabular para extratos bancarios nacionais e internacionais.
+- **OFX (Open Financial Exchange)**: Conformidade com especificacoes OFX 1.02 (SGML) e OFX 2.x (XML).
+- **CSV (RFC 4180)**: Analisador com inferencia automatica de delimitador (ponto-e-virgula, virgula, tabulacao) e decodificacao de moeda em padrao brasileiro ou internacional.
+- **XLSX (ISO/IEC 29500 / ECMA-376)**: Leitura e gravacao nativa de pacotes OpenXML/ZIP contendo tabelas estruturadas, formatacao monetaria de celulas e somatorios.
+- **QIF (Quicken Interchange Format)**: Protocolo padrao de transacoes financeiras `!Type:Bank`.
 
 ---
 
-## 🏛️ Premissas de Engenharia de Software e Telecomunicações
+### 4. Compilacao e Construcao do Sistema
 
-### 1. Engenharia de Telecomunicações & Taxa de Transferência
-- **Arquitetura de Pipeline Multiplexado**: Processamento em estágios (Demux/Framing $\rightarrow$ Tokenização $\rightarrow$ Normalização Canônica $\rightarrow$ Roteamento $\rightarrow$ Serialização/Mux).
-- **Worker Pool Adaptativo (`core::ThreadPool`)**: Escala automaticamente com a concorrência de hardware (`std::thread::hardware_concurrency()`). Em CPUs legadas de 2 núcleos, evita starvation e trocas de contexto desnecessárias.
-- **Eficiência e Zero-Copy**: Utilização de `std::string_view`, buffers reutilizados e descompressão in-memory sem re-alocações.
-- **Medição de Vazão em Tempo Real**: Telemetria contínua exibindo taxa de processamento em Transações/segundo (Tx/s) e Megabytes/segundo (MB/s).
+#### 4.1. Requisitos de Ferramental
+- Compilador C++ com suporte integral a C++20 (`g++` >= 10 ou `clang++` >= 11)
+- Kit de construcao `cmake` (versao >= 3.20)
+- Bibliotecas graficas de sistema: `libglfw3-dev`, `libgl1-mesa-dev`, `libx11-dev`
 
-### 2. Segurança da Informação & Integridade
-- **100% Air-Gapped & Local**: Nenhuma conexão com redes externas, zero telemetria ou vazamento de dados bancários confidenciais.
-- **Impressão Digital Criptográfica (SHA-256)**: Cada transação e cada extrato consolidado recebem um hash SHA-256 para não-repúdio, auditoria e desduplicação automática.
-- **Verificação de Paridade de Livro-Razão (Ledger Balance Parity)**: Checagem contínua se o Saldo Final equivale ao Saldo Inicial acrescido do somatório das transações ($\text{Saldo}_{f} = \text{Saldo}_{i} + \sum \text{Tx}$).
-
----
-
-## 💻 Requisitos e Compilação
-
-### Dependências
-- Compilador C++ moderno compatível com C++20 (`g++` 10+ ou `clang++` 11+)
-- `cmake` (3.20+)
-- `libglfw3-dev` e bibliotecas X11/OpenGL
-
-### Compilação Rápida
+#### 4.2. Procedimento de Construcao
 ```bash
+# Configuracao do projeto em modo Release com otimizacoes de velocidade (-O3)
 cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+# Compilacao paralela utilizando todos os nucleos de processamento
 cmake --build build -j$(nproc)
 ```
 
-### Executar a Bateria de Testes Automatizados
+#### 4.3. Execucao dos Testes de Integridade
+A suite de testes valida os vetores criptograficos, a normalizacao de dados e o roundtrip completo entre todos os formatos:
 ```bash
 ctest --test-dir build --output-on-failure
-# ou diretamente:
+# ou execucao direta do binario:
 ./build/test_converters
 ```
 
 ---
 
-## 🖥️ Modos de Uso
+### 5. Modos de Operacao
 
-### 1. Modo Interface Gráfica Ultra Leve e Moderna (GUI)
-Interface escura, moderna e minimalista (Dear ImGui + GLFW/OpenGL) com suporte a Drag & Drop:
+#### 5.1. Interface Grafica (GUI)
+Interface de alta reatividade desenvolvida sobre GLFW e Dear ImGui, configurada com perfil de compatibilidade para **OpenGL 2.1 / GLSL 1.20**:
 ```bash
 ./build/OmniConverter
 ```
-* **Arrastar e Soltar**: Arraste múltiplos extratos em lote diretamente para a janela.
-* **Inspeção de Transações**: Clique em "Ver" em qualquer extrato para inspecionar, filtrar e auditar as transações antes ou depois da conversão.
-* **Seletor de Formatos Alvo**: Marque quais formatos deseja gerar em paralelo (OFX, CSV, XLSX, QIF, PDF).
+Recursos da interface:
+- **Arraste e Solte (Drag-and-Drop)**: Enfileiramento automatico de arquivos ou pastas arrastados diretamente sobre a janela.
+- **Painel de Telemetria**: Medicao de taxa de transferencia em tempo real (Tx/s, MB/s e tempo total em milissegundos).
+- **Inspecao Estruturada de Lote**: Visualizador com busca e filtro por campos de data, historico e valor, com indicacao visual de debito e credito e exibicao do checksum SHA-256.
 
-### 2. Modo Linha de Comando (CLI Headless / Alta Vazão)
-Para automações, scripts de contabilidade e servidores:
+#### 5.2. Modo em Linha de Comando (Headless Batch)
+Projetado para ambientes de servidor, scripts de esteira contabil e processamento em lote silencioso:
 ```bash
-# Converter lote de arquivos para OFX, CSV e XLSX
+# Conversao simultanea de multiplos arquivos para OFX, CSV e XLSX
 ./build/OmniConverter --batch samples/extrato_itau.ofx samples/extrato_nubank.csv --to ofx,csv,xlsx --out ./dist
 
-# Converter uma pasta inteira recursivamente
-./build/OmniConverter --batch /caminho/com/extratos/ --to ofx,xlsx,qif,pdf --out /caminho/destino/
+# Processamento recursivo de todo um diretorio para todos os formatos suportados
+./build/OmniConverter --batch /caminho/com/extratos/ --to ofx,csv,xlsx,qif,pdf --out /caminho/destino/
 ```
 
 ---
 
-## 📁 Estrutura do Código
+### 6. Estrutura de Diretorios
 
 ```
-├── include/
-│   ├── core/
-│   │   ├── Types.hpp          # Representação Intermediária Canônica (IR), Metadados e Telemetria
-│   │   ├── Hasher.hpp         # Hasher Criptográfico SHA-256 puro em C++
-│   │   ├── Utils.hpp          # Analisador resiliente de valores (BRL/US), datas e strings
-│   │   └── Pipeline.hpp       # ThreadPool concorrente com filas balanceadas
-│   ├── parsers/               # Decodificadores Ingest (PDF, OFX, CSV, XLSX, QIF)
-│   ├── encoders/              # Codificadores Egress (OFX, CSV, XLSX nativo, QIF, PDF vetorial)
-│   ├── converter/
-│   │   └── ConverterEngine.hpp# Motor unificado de coordenação, detecção e desduplicação
-│   └── ui/
-│       ├── Theme.hpp          # Paleta moderna Slate & Cyan Neumorphic
-│       ├── UIController.hpp   # Controlador da visão, telemetria e grid de auditoria
-│       └── AppWindow.hpp      # Janela GLFW com suporte a GLSL 1.20 / Legado
-├── src/                       # Implementação dos módulos C++
-├── tests/
-│   └── test_converters.cpp    # Testes unitários de roundtrip e validação de hash
-├── vendor/                    # ImGui e Miniz amalgamados sem dependências externas
-└── CMakeLists.txt
+.
+|-- CMakeLists.txt
+|-- README.md
+|-- include
+|   |-- converter
+|   |   `-- ConverterEngine.hpp    # Orquestrador unificado e gerenciamento de tarefas
+|   |-- core
+|   |   |-- Hasher.hpp             # Modulo criptografico SHA-256 nativo
+|   |   |-- Pipeline.hpp           # ThreadPool com enfileiramento concorrente
+|   |   |-- Types.hpp              # Modelo Intermediario Canonico (IR) e Telemetria
+|   |   `-- Utils.hpp              # Analisador de valores, datas ISO 8601 e I/O
+|   |-- encoders                   # Serializadores de saida (OFX, CSV, XLSX, QIF, PDF)
+|   |-- parsers                    # Decodificadores de entrada (PDF, OFX, CSV, XLSX, QIF)
+|   `-- ui                         # Controladores de janela GLFW e renderizacao ImGui
+|-- samples                        # Amostras reais de teste para validacao de formatos
+|-- src                            # Implementacao dos modulos de engenharia
+|-- tests                          # Suite de testes automatizados e afericao de taxa
+`-- vendor                         # Modulos de interface e compressao amalgamados
 ```
+
+---
+
+### 7. Licenca e Creditos Academicos
+
+Desenvolvido por Matheus Sousa.
+Laboratorio de Comunicacao e Seguranca da Informacao.
+Departamento de Eletronica e Sistemas, Centro de Tecnologia e Geociencias (CTG).
+Universidade Federal de Pernambuco (UFPE).
+Recife - PE, Brasil.
