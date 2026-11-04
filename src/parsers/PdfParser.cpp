@@ -128,50 +128,94 @@ std::string PdfParser::extractRawTextFromPdf(const std::vector<uint8_t>& pdfByte
 
                     std::string_view block(bt, et - bt);
 
-                    // Extract text strings inside parentheses (text) Tj or within TJ arrays
+                    // Extract text strings: either literal (text) or hexadecimal <hex>
                     size_t bPos = 0;
                     while (bPos < block.size()) {
                         size_t pOpen = block.find('(', bPos);
-                        if (pOpen == std::string_view::npos) break;
+                        size_t hOpen = block.find('<', bPos);
 
-                        size_t pClose = pOpen + 1;
-                        int nested = 1;
-                        while (pClose < block.size() && nested > 0) {
-                            if (block[pClose] == '\\') {
-                                pClose += 2;
-                                continue;
+                        // Avoid matching dictionary <<
+                        if (hOpen != std::string_view::npos && hOpen + 1 < block.size() && block[hOpen + 1] == '<') {
+                            size_t dictEnd = block.find(">>", hOpen + 2);
+                            if (dictEnd != std::string_view::npos) {
+                                hOpen = block.find('<', dictEnd + 2);
+                            } else {
+                                hOpen = std::string_view::npos;
                             }
-                            if (block[pClose] == '(') nested++;
-                            else if (block[pClose] == ')') nested--;
-                            pClose++;
                         }
 
-                        if (nested == 0) {
-                            std::string token(block.substr(pOpen + 1, (pClose - 1) - (pOpen + 1)));
-                            // Unescape basic PDF characters
-                            std::string cleaned;
-                            for (size_t i = 0; i < token.size(); ++i) {
-                                if (token[i] == '\\' && i + 1 < token.size()) {
-                                    char next = token[++i];
-                                    if (next == 'n') cleaned.push_back('\n');
-                                    else if (next == 'r') cleaned.push_back('\r');
-                                    else if (next == 't') cleaned.push_back('\t');
-                                    else cleaned.push_back(next);
-                                } else {
-                                    cleaned.push_back(token[i]);
-                                }
-                            }
-                            fullText += cleaned + " ";
-                            bPos = pClose;
+                        if (pOpen == std::string_view::npos && hOpen == std::string_view::npos) break;
 
-                            // If followed by line break operators (' or T* or explicit newline)
-                            size_t nextP = block.find('(', bPos);
-                            std::string_view between = (nextP == std::string_view::npos) ? block.substr(bPos) : block.substr(bPos, nextP - bPos);
-                            if (between.find('\'') != std::string_view::npos || between.find("T*") != std::string_view::npos) {
-                                fullText += "\n";
+                        if (pOpen != std::string_view::npos && (hOpen == std::string_view::npos || pOpen < hOpen)) {
+                            // Parenthesized string literal (text)
+                            size_t pClose = pOpen + 1;
+                            int nested = 1;
+                            while (pClose < block.size() && nested > 0) {
+                                if (block[pClose] == '\\') {
+                                    pClose += 2;
+                                    continue;
+                                }
+                                if (block[pClose] == '(') nested++;
+                                else if (block[pClose] == ')') nested--;
+                                pClose++;
+                            }
+
+                            if (nested == 0) {
+                                std::string token(block.substr(pOpen + 1, (pClose - 1) - (pOpen + 1)));
+                                std::string cleaned;
+                                for (size_t i = 0; i < token.size(); ++i) {
+                                    if (token[i] == '\\' && i + 1 < token.size()) {
+                                        char next = token[++i];
+                                        if (next == 'n') cleaned.push_back('\n');
+                                        else if (next == 'r') cleaned.push_back('\r');
+                                        else if (next == 't') cleaned.push_back('\t');
+                                        else cleaned.push_back(next);
+                                    } else {
+                                        cleaned.push_back(token[i]);
+                                    }
+                                }
+                                fullText += cleaned + " ";
+                                bPos = pClose;
+                            } else {
+                                bPos = pOpen + 1;
                             }
                         } else {
-                            bPos = pOpen + 1;
+                            // Hexadecimal string literal <hex>
+                            size_t hClose = block.find('>', hOpen + 1);
+                            if (hClose != std::string_view::npos) {
+                                std::string hexStr(block.substr(hOpen + 1, hClose - (hOpen + 1)));
+                                std::string decoded;
+                                std::string curByte;
+                                for (char c : hexStr) {
+                                    if (std::isspace(static_cast<unsigned char>(c))) continue;
+                                    curByte.push_back(c);
+                                    if (curByte.size() == 2) {
+                                        try {
+                                            char byteVal = static_cast<char>(std::stoi(curByte, nullptr, 16));
+                                            decoded.push_back(byteVal);
+                                        } catch (...) {}
+                                        curByte.clear();
+                                    }
+                                }
+                                if (curByte.size() == 1) {
+                                    curByte.push_back('0');
+                                    try {
+                                        char byteVal = static_cast<char>(std::stoi(curByte, nullptr, 16));
+                                        decoded.push_back(byteVal);
+                                    } catch (...) {}
+                                }
+                                fullText += decoded + " ";
+                                bPos = hClose + 1;
+                            } else {
+                                bPos = hOpen + 1;
+                            }
+                        }
+
+                        // If followed by line break operators (' or T* or explicit newline)
+                        size_t nextP = block.find_first_of("(<", bPos);
+                        std::string_view between = (nextP == std::string_view::npos) ? block.substr(bPos) : block.substr(bPos, nextP - bPos);
+                        if (between.find('\'') != std::string_view::npos || between.find("T*") != std::string_view::npos) {
+                            fullText += "\n";
                         }
                     }
 
@@ -303,7 +347,7 @@ void PdfParser::parseBankMetadata(const std::string& text, core::Statement& stat
 void PdfParser::parseTransactionsFromText(const std::string& text, core::Statement& statement) const {
     std::vector<std::string> lines = core::Utils::split(text, '\n');
 
-    std::regex dateRegex(R"(\b(\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\b)");
+    std::regex dateRegex(R"(\b(\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}|\d{1,2}[\s\/\-\.](?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ|OCT|DEC)[\s\/\-\.]?(?:\d{2,4})?)\b)", std::regex::icase);
     std::regex amtRegex(R"((?:[\+\-]\s*)?(?:R\$\s*)?\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?(?:\s*[CD\-])?(?!\/|\d)|(?:[\+\-]\s*)?(?:R\$\s*)?\(?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s*[CD\-])?(?!\/|\d))");
 
     int currentYear = 2024;

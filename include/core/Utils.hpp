@@ -139,14 +139,17 @@ public:
     }
 
     // Normalizes various date formats to ISO 8601: "YYYY-MM-DD"
-    static std::string normalizeDate(std::string_view raw) {
+    static std::string normalizeDate(std::string_view raw, int fallbackYear = 2024) {
         std::string s = trim(raw);
         if (s.empty()) return "";
 
         // Remove time if present (e.g. "2023-11-04 14:00:00" or "20231104120000[-03:EST]")
         size_t spaceIdx = s.find(' ');
-        if (spaceIdx != std::string::npos) {
-            s = s.substr(0, spaceIdx);
+        if (spaceIdx != std::string::npos && spaceIdx >= 4) {
+            std::string afterSpace = s.substr(spaceIdx + 1);
+            if (afterSpace.find(':') != std::string::npos) {
+                s = s.substr(0, spaceIdx);
+            }
         }
         size_t bracketIdx = s.find('[');
         if (bracketIdx != std::string::npos) {
@@ -161,38 +164,64 @@ public:
             return y + "-" + m + "-" + d;
         }
 
-        // Look for DD/MM/YYYY or DD/MM/YY
-        std::regex brDateRegex(R"(^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4}))");
+        // Textual month date: e.g. "15 OUT 2023", "15-OUT-2023", "15/OUT/2023", "15 OUT"
+        std::regex textMonthRegex(R"(^(\d{1,2})[\s\/\-\.]([A-Za-z]{3,4})(?:[\s\/\-\.](\d{2,4}))?)", std::regex::icase);
+        std::smatch tMatch;
+        if (std::regex_search(s, tMatch, textMonthRegex)) {
+            std::string d = tMatch[1].str();
+            std::string monStr = toUpper(tMatch[2].str());
+            std::string y = tMatch[3].matched ? tMatch[3].str() : std::to_string(fallbackYear);
+
+            std::string m = "01";
+            if (monStr.rfind("JAN", 0) == 0) m = "01";
+            else if (monStr.rfind("FEV", 0) == 0 || monStr.rfind("FEB", 0) == 0) m = "02";
+            else if (monStr.rfind("MAR", 0) == 0) m = "03";
+            else if (monStr.rfind("ABR", 0) == 0 || monStr.rfind("APR", 0) == 0) m = "04";
+            else if (monStr.rfind("MAI", 0) == 0 || monStr.rfind("MAY", 0) == 0) m = "05";
+            else if (monStr.rfind("JUN", 0) == 0) m = "06";
+            else if (monStr.rfind("JUL", 0) == 0) m = "07";
+            else if (monStr.rfind("AGO", 0) == 0 || monStr.rfind("AUG", 0) == 0) m = "08";
+            else if (monStr.rfind("SET", 0) == 0 || monStr.rfind("SEP", 0) == 0) m = "09";
+            else if (monStr.rfind("OUT", 0) == 0 || monStr.rfind("OCT", 0) == 0) m = "10";
+            else if (monStr.rfind("NOV", 0) == 0) m = "11";
+            else if (monStr.rfind("DEZ", 0) == 0 || monStr.rfind("DEC", 0) == 0) m = "12";
+
+            if (d.size() == 1) d = "0" + d;
+            if (y.size() == 2) {
+                int yi = std::stoi(y);
+                y = (yi > 50 ? "19" : "20") + y;
+            }
+            return y + "-" + m + "-" + d;
+        }
+
+        // ISO format YYYY-MM-DD or YYYY/MM/DD
+        std::regex isoDateRegex(R"(^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2}))");
         std::smatch match;
+        if (std::regex_search(s, match, isoDateRegex)) {
+            std::string y = match[1].str();
+            std::string m = match[2].str();
+            std::string d = match[3].str();
+            if (m.size() == 1) m = "0" + m;
+            if (d.size() == 1) d = "0" + d;
+            return y + "-" + m + "-" + d;
+        }
+
+        // Standard numeric date: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD/MM/YY, DD/MM
+        std::regex brDateRegex(R"(^(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?)");
         if (std::regex_search(s, match, brDateRegex)) {
             std::string d = match[1].str();
             std::string m = match[2].str();
-            std::string y = match[3].str();
+            std::string y = match[3].matched ? match[3].str() : std::to_string(fallbackYear);
+
             if (d.size() == 1) d = "0" + d;
             if (m.size() == 1) m = "0" + m;
             if (y.size() == 2) {
                 int yi = std::stoi(y);
                 y = (yi > 50 ? "19" : "20") + y;
             }
-            // Check if format might be YYYY-MM-DD already
-            if (match[1].length() == 4) {
-                return match[1].str() + "-" + m + "-" + y;
-            }
             return y + "-" + m + "-" + d;
         }
 
-        // ISO format YYYY-MM-DD
-        std::regex isoDateRegex(R"(^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2}))");
-        if (std::regex_search(s, match, isoDateRegex)) {
-            std::string y = match[1].str();
-            std::string m = match[2].str();
-            std::string d = match[3].str();
-            if (d.size() == 1) d = "0" + d;
-            if (m.size() == 1) m = "0" + m;
-            return y + "-" + m + "-" + d;
-        }
-
-        // Not a recognizable date
         return "";
     }
 

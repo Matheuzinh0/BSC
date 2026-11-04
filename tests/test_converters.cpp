@@ -44,6 +44,10 @@ void testAmountAndDateParsing() {
     ASSERT_TRUE(ofx::core::Utils::normalizeDate("15/10/2023") == "2023-10-15", "Date DD/MM/YYYY");
     ASSERT_TRUE(ofx::core::Utils::normalizeDate("2023-10-15") == "2023-10-15", "Date ISO YYYY-MM-DD");
     ASSERT_TRUE(ofx::core::Utils::normalizeDate("20231015120000[-03:EST]") == "2023-10-15", "OFX Timestamp");
+    ASSERT_TRUE(ofx::core::Utils::normalizeDate("15 OUT 2023") == "2023-10-15", "Text Month Date 15 OUT 2023");
+    ASSERT_TRUE(ofx::core::Utils::normalizeDate("10-JAN-2024") == "2024-01-10", "Text Month Date 10-JAN-2024");
+    ASSERT_TRUE(ofx::core::Utils::normalizeDate("05/DEZ/2023") == "2023-12-05", "Text Month Date 05/DEZ/2023");
+    ASSERT_TRUE(ofx::core::Utils::normalizeDate("20.11.2023") == "2023-11-20", "Dot Date 20.11.2023");
 }
 
 void testUniversalFormatRoundtrip() {
