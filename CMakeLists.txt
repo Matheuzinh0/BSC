@@ -1,11 +1,11 @@
 # =================================================================================================
-# Projeto: OmniStatement Studio
-# Desenvolvido por Matheus Sousa, Laboratório de Comunicação e Segurança da Informação,
-# Departamento de Eletrônica e Sistemas, CTG-UFPE.
+# Projeto: BSC (Bank Statement Conversion)
+# Desenvolvido por Matheus Sousa, Laboratorio de Comunicacao e Seguranca da Informacao,
+# Departamento de Eletronica e Sistemas, CTG-UFPE.
 # =================================================================================================
 
 cmake_minimum_required(VERSION 3.20)
-project(OmniConverter VERSION 2.5.0 LANGUAGES C CXX)
+project(BSC VERSION 2.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -66,21 +66,21 @@ set(CORE_SOURCES
     src/converter/ConverterEngine.cpp
 )
 
-add_library(OmniConverterCore STATIC ${CORE_SOURCES})
-target_link_libraries(OmniConverterCore PUBLIC miniz)
+add_library(BSCCore STATIC ${CORE_SOURCES})
+target_link_libraries(BSCCore PUBLIC miniz)
 
 # Find GUI dependencies
 find_package(OpenGL REQUIRED)
 
-# Executable: OmniConverter (Main GUI & Headless Batch Application)
-add_executable(OmniConverter
+# Executable: BSC (Main GUI & Headless Batch Application)
+add_executable(BSC
     src/main.cpp
     src/ui/UIController.cpp
     src/ui/AppWindow.cpp
 )
 
-target_link_libraries(OmniConverter PRIVATE
-    OmniConverterCore
+target_link_libraries(BSC PRIVATE
+    BSCCore
     imgui
     OpenGL::GL
     glfw
@@ -94,7 +94,7 @@ add_executable(test_converters
 )
 
 target_link_libraries(test_converters PRIVATE
-    OmniConverterCore
+    BSCCore
     pthread
 )
 

@@ -1,6 +1,6 @@
 /**
  * =================================================================================================
- * Projeto: OmniStatement Studio
+ * Projeto: BSC (Bank Statement Conversion)
  * Desenvolvido por Matheus Sousa, Laboratório de Comunicação e Segurança da Informação,
  * Departamento de Eletrônica e Sistemas, CTG-UFPE.
  * =================================================================================================
@@ -41,13 +41,13 @@ int main(int argc, char* argv[]) {
             cliOutDir = argv[++i];
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "===================================================================\n";
-            std::cout << " OmniStatement Studio - High Throughput Financial Converter (C++20)\n";
+            std::cout << " BSC - Bank Statement Conversion (v2.5 - C++20)\n";
             std::cout << " Desenvolvido por Matheus Sousa, Laboratorio de Comunicacao e\n";
             std::cout << " Seguranca da Informacao, Departamento de Eletronica e Sistemas, CTG-UFPE.\n";
             std::cout << "===================================================================\n";
-            std::cout << "Uso no Modo Grafico:  ./OmniConverter [arquivos ou pastas...]\n";
-            std::cout << "Uso no Modo Linha de Comando (CLI / Telecom Engine):\n";
-            std::cout << "  ./OmniConverter --batch <arquivo1> <arquivo2...> --to ofx,csv,xlsx,qif,pdf [--out ./saida]\n\n";
+            std::cout << "Uso no Modo Grafico:  ./BSC [arquivos ou pastas...]\n";
+            std::cout << "Uso no Modo Linha de Comando (CLI Batch Engine):\n";
+            std::cout << "  ./BSC --batch <arquivo1> <arquivo2...> --to ofx,csv,xlsx,qif,pdf [--out ./saida]\n\n";
             std::cout << "Formatos Suportados (Qualquer para Qualquer):\n";
             std::cout << "  PDF  -> OFX, CSV, XLSX, QIF, PDF\n";
             std::cout << "  OFX  -> CSV, XLSX, QIF, PDF, OFX\n";
@@ -63,8 +63,8 @@ int main(int argc, char* argv[]) {
     ofx::converter::ConverterEngine engine;
 
     if (headless) {
-        std::cout << "[OMNISTATEMENT] Modo Headless Batch Ativado.\n";
-        std::cout << "[OMNISTATEMENT] Threads ativas no pool: " << engine.getWorkerCount() << "\n";
+        std::cout << "[BSC] Modo Headless Batch Ativado.\n";
+        std::cout << "[BSC] Threads ativas no pool: " << engine.getWorkerCount() << "\n";
 
         if (cliTargets.empty()) {
             cliTargets = {ofx::core::FileFormat::OFX, ofx::core::FileFormat::CSV, ofx::core::FileFormat::XLSX};
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        std::cout << "[OMNISTATEMENT] Processando " << tasks.size() << " arquivo(s) em lote...\n";
+        std::cout << "[BSC] Processando " << tasks.size() << " arquivo(s) em lote...\n";
 
         std::atomic<bool> done{false};
         engine.processBatchAsync(
@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
         controller.addFiles(inputFiles);
     }
 
-    ofx::ui::AppWindow window(1180, 780, "OmniStatement Studio v2.5 - Universal Financial Engine", controller);
+    ofx::ui::AppWindow window(1180, 780, "BSC v2.5 - Bank Statement Conversion", controller);
     if (!window.init()) {
         std::cerr << "Falha ao inicializar janela grafica. Execute com --batch para o modo CLI.\n";
         return 1;

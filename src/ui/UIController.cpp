@@ -1,6 +1,6 @@
 /**
  * =================================================================================================
- * Projeto: OmniStatement Studio
+ * Projeto: BSC (Bank Statement Conversion)
  * Desenvolvido por Matheus Sousa, Laboratório de Comunicação e Segurança da Informação,
  * Departamento de Eletrônica e Sistemas, CTG-UFPE.
  * =================================================================================================
@@ -116,11 +116,11 @@ void UIController::startBatchConversion() {
 
 void UIController::renderHeader() {
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.06f, 0.72f, 0.51f, 1.0f));
-    ImGui::Text("OMNISTATEMENT STUDIO");
+    ImGui::Text("BSC - BANK STATEMENT CONVERSION");
     ImGui::PopStyleColor();
 
     ImGui::SameLine();
-    ImGui::TextDisabled("v2.5 High-Throughput Bank Statement Engine");
+    ImGui::TextDisabled("v2.5 High-Throughput Universal Converter");
 
     ImGui::SameLine(ImGui::GetWindowWidth() - 480);
     ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "[Air-Gapped: 100%% Local]");
@@ -293,7 +293,7 @@ void UIController::renderBatchQueuePanel() {
 void UIController::renderTelemetryDashboard() {
     ImGui::BeginChild("TelemetryDashboard", ImVec2(0, 0), true);
 
-    ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "TELEMETRIA DE ENGENHARIA DE TELECOMUNICACOES & ALTA VAZAO:");
+    ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "TELEMETRIA DE EXECUCAO & ALTA VAZAO:");
     ImGui::Spacing();
 
     ImGui::Columns(4, "telecomColumns", false);
@@ -442,22 +442,23 @@ void UIController::renderAboutModal() {
     if (!m_showAboutModal) return;
 
     ImGui::SetNextWindowSize(ImVec2(700, 380), ImGuiCond_Appearing);
-    if (ImGui::Begin("Créditos & Desenvolvimento Institucional", &m_showAboutModal, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::TextColored(ImVec4(0.06f, 0.72f, 0.51f, 1.0f), "OMNISTATEMENT STUDIO v2.5");
-        ImGui::Text("Motor Universal de Conversão de Extratos Bancários em Alta Vazão");
+    if (ImGui::Begin("Creditos & Informacoes Institucionais", &m_showAboutModal, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextColored(ImVec4(0.06f, 0.72f, 0.51f, 1.0f), "BSC - BANK STATEMENT CONVERSION (v2.5)");
+        ImGui::Text("Sistema Universal de Conversao de Extratos Bancarios em Alta Vazao");
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
 
         ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "DESENVOLVIMENTO:");
-        ImGui::TextWrapped("Desenvolvido por Matheus Sousa, Laboratório de Comunicação e Segurança da Informação, Departamento de Eletrônica e Sistemas, CTG-UFPE.");
+        ImGui::TextWrapped("Desenvolvido por Matheus Sousa, Laboratorio de Comunicacao e Seguranca da Informacao, Departamento de Eletronica e Sistemas, CTG-UFPE.");
 
         ImGui::Spacing();
-        ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "PREMISSAS DE ENGENHARIA DE TELECOMUNICAÇÕES:");
-        ImGui::BulletText("Canal e Pipelining com vazão máxima e descompressão in-memory sem cópias supérfluas.");
-        ImGui::BulletText("Processamento Concorrente com ThreadPool auto-adaptativo a hardware legado.");
-        ImGui::BulletText("Integridade estrita ponto-a-ponto via fingerprint criptográfico SHA-256.");
-        ImGui::BulletText("Reconciliação e paridade contínua de livro-razão contábil.");
+        ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "ARQUITETURA E DESEMPENHO:");
+        ImGui::BulletText("Pipeline de alta vazao com descompressao in-memory sem copias superfluas.");
+        ImGui::BulletText("Processamento Concorrente com ThreadPool auto-adaptativo.");
+        ImGui::BulletText("Integridade estrita ponta a ponta via hash criptografico SHA-256.");
+        ImGui::BulletText("Reconciliacao e paridade continua de livro-razao contabil.");
+        ImGui::BulletText("Licenca: MIT License.");
 
         ImGui::Spacing();
         ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "COMPATIBILIDADE LEGADA:");
@@ -481,7 +482,7 @@ void UIController::render() {
                                    ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
                                    ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-    ImGui::Begin("OmniStatementMainWindow", nullptr, windowFlags);
+    ImGui::Begin("BSCMainWindow", nullptr, windowFlags);
 
     renderHeader();
     renderTargetOptionsPanel();

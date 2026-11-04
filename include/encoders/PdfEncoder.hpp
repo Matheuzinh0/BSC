@@ -1,6 +1,6 @@
 /**
  * =================================================================================================
- * Projeto: OmniStatement Studio
+ * Projeto: BSC (Bank Statement Conversion)
  * Desenvolvido por Matheus Sousa, Laboratório de Comunicação e Segurança da Informação,
  * Departamento de Eletrônica e Sistemas, CTG-UFPE.
  * =================================================================================================
