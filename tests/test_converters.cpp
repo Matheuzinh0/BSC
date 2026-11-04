@@ -9,6 +9,7 @@
 #include "core/Types.hpp"
 #include "core/Hasher.hpp"
 #include "core/Utils.hpp"
+#include "parsers/PdfParser.hpp"
 #include "converter/ConverterEngine.hpp"
 #include <iostream>
 #include <cassert>
@@ -150,6 +151,68 @@ void testUniversalFormatRoundtrip() {
     std::filesystem::remove_all("/tmp/ofx_test_sandbox");
 }
 
+void testLayoutAgnosticPdfParsing() {
+    std::cout << "\n--- TEST: Layout-Agnostic PDF Text Parser ---\n";
+    ofx::parsers::PdfParser parser;
+
+    // Test Case 1: Banco do Brasil style with document number, trailing C/D, and multi-line continuation
+    std::string bbPdfText = 
+        "BANCO DO BRASIL - AUTOATENDIMENTO BB\n"
+        "Prefixo: 1234-5    Conta Corrente: 98765-4\n"
+        "Data        Documento  Historico                       Valor\n"
+        "SALDO ANTERIOR                                         1.500,00 C\n"
+        "05/10/2023  000452     PIX TRANSF MATHEUS              150,00 D\n"
+        "06/10/2023  001099     TED RECEBIDA                    2.500,00 C\n"
+        "FAVORECIDO: EMPRESA ALPHA LTDA\n"
+        "SALDO ATUAL                                            3.850,00 C\n";
+
+    auto stmtBB = parser.parseFromText(bbPdfText);
+    ASSERT_TRUE(stmtBB != nullptr, "Parsed BB statement");
+    ASSERT_TRUE(stmtBB->account.bankId == "001", "BB Bank ID is 001");
+    ASSERT_TRUE(stmtBB->account.branchId == "1234-5", "BB Branch ID matches");
+    ASSERT_TRUE(stmtBB->account.accountId == "98765-4", "BB Account ID matches");
+    ASSERT_TRUE(stmtBB->transactions.size() == 2, "BB Transactions count is 2");
+    ASSERT_TRUE(stmtBB->transactions[0].documentNumber == "000452", "BB Tx 1 Doc number matched");
+    ASSERT_TRUE(std::abs(stmtBB->transactions[0].amount - (-150.00)) < 0.001, "BB Tx 1 amount -150.00");
+    ASSERT_TRUE(std::abs(stmtBB->transactions[1].amount - 2500.00) < 0.001, "BB Tx 2 amount +2500.00");
+    ASSERT_TRUE(stmtBB->transactions[1].description.find("EMPRESA ALPHA LTDA") != std::string::npos, 
+                "Multi-line description stitched successfully");
+
+    // Test Case 2: Nubank / Fintech style with signed amounts and simple layout
+    std::string nuPdfText =
+        "Nu Pagamentos S.A. - Nubank\n"
+        "Agencia: 0001    Conta: 1234567-8\n"
+        "Data        Descricao                         Valor\n"
+        "01/11/2023  Transferencia enviada pelo Pix    -45,90\n"
+        "02/11/2023  Pagamento de boleto internet      -120,00\n"
+        "03/11/2023  Transferencia recebida pelo Pix   +800,00\n";
+
+    auto stmtNu = parser.parseFromText(nuPdfText);
+    ASSERT_TRUE(stmtNu != nullptr, "Parsed Nubank statement");
+    ASSERT_TRUE(stmtNu->account.bankId == "260", "Nubank ID is 260");
+    ASSERT_TRUE(stmtNu->account.accountId == "1234567-8", "Nubank Account ID matches");
+    ASSERT_TRUE(stmtNu->transactions.size() == 3, "Nubank Transactions count is 3");
+    ASSERT_TRUE(std::abs(stmtNu->totalDebits - 165.90) < 0.001, "Nubank total debits 165.90");
+    ASSERT_TRUE(std::abs(stmtNu->totalCredits - 800.00) < 0.001, "Nubank total credits 800.00");
+
+    // Test Case 3: 3-column statement (Débito, Crédito, Saldo) commonly used in Cooperatives / Caixa
+    std::string coopPdfText =
+        "SICOOB - Sistema de Cooperativas\n"
+        "Ponto de Atendimento: 0101    No. Conta: 55443-2\n"
+        "DATA        HISTORICO                    DEBITO      CREDITO     SALDO\n"
+        "10/11/2023  COMPRA CARTAO DEBITO LOJA    100,00      0,00        1.900,00\n"
+        "11/11/2023  DEPOSITO EM DINHEIRO         0,00        500,00      2.400,00\n";
+
+    auto stmtCoop = parser.parseFromText(coopPdfText);
+    ASSERT_TRUE(stmtCoop != nullptr, "Parsed Sicoob 3-column statement");
+    ASSERT_TRUE(stmtCoop->account.bankId == "756", "Sicoob Bank ID is 756");
+    ASSERT_TRUE(stmtCoop->transactions.size() == 2, "Sicoob Transactions count is 2");
+    ASSERT_TRUE(std::abs(stmtCoop->transactions[0].amount - (-100.00)) < 0.001, "3-column debit recognized");
+    ASSERT_TRUE(std::abs(stmtCoop->transactions[1].amount - 500.00) < 0.001, "3-column credit recognized");
+    ASSERT_TRUE(stmtCoop->transactions[1].runningBalance.has_value(), "Running balance present");
+    ASSERT_TRUE(std::abs(stmtCoop->transactions[1].runningBalance.value() - 2400.00) < 0.001, "Running balance recognized");
+}
+
 int main() {
     std::cout << "========================================================\n";
     std::cout << " EXECUTANDO BATERIA DE TESTES DE CONVERSAO UNIVERSAL\n";
@@ -158,6 +221,7 @@ int main() {
     testSha256();
     testAmountAndDateParsing();
     testUniversalFormatRoundtrip();
+    testLayoutAgnosticPdfParsing();
 
     std::cout << "\n[================ TODOS OS TESTES PASSARAM! ================]\n";
     return 0;

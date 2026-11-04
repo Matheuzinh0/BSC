@@ -148,146 +148,288 @@ std::string PdfParser::extractRawTextFromPdf(const std::vector<uint8_t>& pdfByte
 }
 
 void PdfParser::parseBankMetadata(const std::string& text, core::Statement& statement) const {
-    // Detect Bank
-    std::string upper = core::Utils::toUpper(text);
-    if (upper.find("BANCO DO BRASIL") != std::string::npos || upper.find("AUTOATENDIMENTO BB") != std::string::npos) {
-        statement.account.bankId = "001";
-        statement.account.bankName = "Banco do Brasil";
-    } else if (upper.find("ITAU") != std::string::npos || upper.find("ITAÚ") != std::string::npos) {
-        statement.account.bankId = "341";
-        statement.account.bankName = "Banco Itaú";
-    } else if (upper.find("BRADESCO") != std::string::npos) {
-        statement.account.bankId = "237";
-        statement.account.bankName = "Banco Bradesco";
-    } else if (upper.find("SANTANDER") != std::string::npos) {
-        statement.account.bankId = "033";
-        statement.account.bankName = "Banco Santander";
-    } else if (upper.find("CAIXA") != std::string::npos) {
-        statement.account.bankId = "104";
-        statement.account.bankName = "Caixa Econômica Federal";
-    } else if (upper.find("NUBANK") != std::string::npos || upper.find("NU PAGAMENTOS") != std::string::npos) {
-        statement.account.bankId = "260";
-        statement.account.bankName = "Nu Pagamentos S.A.";
-    } else if (upper.find("BANCO INTER") != std::string::npos || upper.find("INTER") != std::string::npos) {
-        statement.account.bankId = "077";
-        statement.account.bankName = "Banco Inter";
-    } else {
-        statement.account.bankId = "999";
-        statement.account.bankName = "Extrato Bancário Universal";
+    std::string upperText = core::Utils::toUpper(text);
+    std::string headerArea = upperText.substr(0, std::min<size_t>(upperText.size(), 2500));
+
+    struct BankMap {
+        const char* key;
+        const char* code;
+        const char* name;
+    };
+
+    static const BankMap kBanks[] = {
+        {"BANCO DO BRASIL", "001", "Banco do Brasil S.A."},
+        {"AUTOATENDIMENTO BB", "001", "Banco do Brasil S.A."},
+        {"SANTANDER", "033", "Banco Santander Brasil"},
+        {"CAIXA ECONOMICA", "104", "Caixa Economica Federal"},
+        {"CAIXA ECONÔMICA", "104", "Caixa Economica Federal"},
+        {"BRADESCO", "237", "Banco Bradesco S.A."},
+        {"ITAU", "341", "Itau Unibanco S.A."},
+        {"ITAÚ", "341", "Itau Unibanco S.A."},
+        {"NUBANK", "260", "Nu Pagamentos - Nubank"},
+        {"NU PAGAMENTOS", "260", "Nu Pagamentos - Nubank"},
+        {"BANCO INTER", "077", "Banco Inter S.A."},
+        {"INTER", "077", "Banco Inter S.A."},
+        {"C6 BANK", "336", "Banco C6 S.A."},
+        {"SICOOB", "756", "Bancoob - Sicoob"},
+        {"SICREDI", "748", "Banco Sicredi"},
+        {"UNICRED", "136", "Unicred do Brasil"},
+        {"BTG PACTUAL", "208", "Banco BTG Pactual"},
+        {"SAFRA", "422", "Banco Safra"},
+        {"BANRISUL", "041", "Banco do Estado do Rio Grande do Sul"},
+        {"BANCO DO NORDESTE", "004", "Banco do Nordeste do Brasil"},
+        {"BNB", "004", "Banco do Nordeste do Brasil"},
+        {"BANCO DA AMAZONIA", "003", "Banco da Amazonia S.A."},
+        {"PAGBANK", "290", "PagBank - PagSeguro"},
+        {"PAGSEGURO", "290", "PagBank - PagSeguro"},
+        {"MERCADO PAGO", "323", "Mercado Pago IP Ltda"},
+        {"PICPAY", "380", "PicPay Servicos S.A."},
+        {"STONE", "197", "Stone Pagamentos"},
+        {"XP INVESTIMENTOS", "102", "XP Investimentos"},
+        {"BANCO ORIGINAL", "212", "Banco Original"},
+        {"DAYCOVAL", "707", "Banco Daycoval"},
+        {"BANCO BMG", "318", "Banco BMG"},
+        {"BMG", "318", "Banco BMG"},
+        {"BANCO PAN", "623", "Banco Pan"}
+    };
+
+    auto matchesBankKey = [](const std::string& haystack, const std::string& key) -> bool {
+        size_t pos = 0;
+        while ((pos = haystack.find(key, pos)) != std::string::npos) {
+            bool leftOk = (pos == 0 || !std::isalnum(static_cast<unsigned char>(haystack[pos - 1])));
+            size_t endPos = pos + key.size();
+            bool rightOk = (endPos == haystack.size() || !std::isalnum(static_cast<unsigned char>(haystack[endPos])));
+            if (leftOk && rightOk) {
+                return true;
+            }
+            pos = endPos;
+        }
+        return false;
+    };
+
+    bool bankFound = false;
+    // Pass 1: Header area check
+    for (const auto& b : kBanks) {
+        if (matchesBankKey(headerArea, b.key)) {
+            statement.account.bankId = b.code;
+            statement.account.bankName = b.name;
+            bankFound = true;
+            break;
+        }
+    }
+
+    // Pass 2: Full text fallback
+    if (!bankFound) {
+        for (const auto& b : kBanks) {
+            if (matchesBankKey(upperText, b.key)) {
+                statement.account.bankId = b.code;
+                statement.account.bankName = b.name;
+                bankFound = true;
+                break;
+            }
+        }
+    }
+
+    if (!bankFound) {
+        std::regex dynBankRegex(R"((?:Banco|Institui[cç][aã]o|Cooperativa)[\s\:\-]+([A-Za-z0-9\s]{3,25}))", std::regex::icase);
+        std::smatch match;
+        if (std::regex_search(text, match, dynBankRegex)) {
+            statement.account.bankName = core::Utils::trim(match[1].str());
+            statement.account.bankId = "999";
+        } else {
+            statement.account.bankId = "999";
+            statement.account.bankName = "Extrato Bancario Universal";
+        }
     }
 
     // Extract Agência and Conta
-    std::regex agRegex(R"((?:Ag[êe]ncia|Ag\.?|Prefix|Prefixo)[\s\:\-]*([0-9]{3,5}(?:-[0-9X])?))", std::regex::icase);
-    std::smatch match;
-    if (std::regex_search(text, match, agRegex)) {
-        statement.account.branchId = match[1].str();
+    std::regex agRegex(R"((?:Ag[êe]ncia|Ag\.?|Prefix|Prefixo|Ponto de Atendimento|PA)[\s\:\-]*([0-9]{3,5}(?:-[0-9X])?))", std::regex::icase);
+    std::smatch agMatch;
+    if (std::regex_search(text, agMatch, agRegex)) {
+        statement.account.branchId = agMatch[1].str();
     }
 
-    std::regex ccRegex(R"((?:Conta|C\/C|Conta Corrente|Cta)[\s\:\-]*([0-9]{4,12}(?:-[0-9X])?))", std::regex::icase);
-    if (std::regex_search(text, match, ccRegex)) {
-        statement.account.accountId = match[1].str();
+    std::regex ccRegex(R"((?:Conta|C\/C|Conta Corrente|Cta|Cta Corrente|No\. Conta)[\s\:\-]*([0-9]{4,14}(?:-[0-9X])?))", std::regex::icase);
+    std::smatch ccMatch;
+    if (std::regex_search(text, ccMatch, ccRegex)) {
+        statement.account.accountId = ccMatch[1].str();
     }
 
-    if (statement.account.accountId.empty()) {
-        statement.account.accountId = "000000";
-    }
-    if (statement.account.branchId.empty()) {
-        statement.account.branchId = "0001";
-    }
+    if (statement.account.accountId.empty()) statement.account.accountId = "000000";
+    if (statement.account.branchId.empty()) statement.account.branchId = "0001";
     statement.account.accountType = "CHECKING";
 }
 
 void PdfParser::parseTransactionsFromText(const std::string& text, core::Statement& statement) const {
     std::vector<std::string> lines = core::Utils::split(text, '\n');
 
-    // Regex 1: DD/MM/YYYY Description Amount [C/D] [Balance]
-    std::regex txRegex1(R"((\d{2,4}[\/\-]\d{2}[\/\-]\d{2,4})\s+(.+?)\s+([\+\-]?\s*(?:R\$\s*)?[\d\.\,]+(?:\s*[CD])?)(?:\s+([\d\.\,]+(?:\s*[CD])?))?\s*$)");
-    // Regex 2: DD/MM Description Amount
-    std::regex txRegex2(R"((\d{2}[\/\-]\d{2}(?:[\/\-]\d{2,4})?)\s+(.+?)\s+([\+\-]?\s*(?:R\$\s*)?[\d\.\,]+(?:\s*[CD])?)\s*$)");
+    std::regex dateRegex(R"(\b(\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\b)");
+    std::regex amtRegex(R"((?:[\+\-]\s*)?(?:R\$\s*)?\(?\d{1,3}(?:\.\d{3})*,\d{2}\)?(?:\s*[CD\-])?(?!\/|\d)|(?:[\+\-]\s*)?(?:R\$\s*)?\(?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s*[CD\-])?(?!\/|\d))");
 
     int currentYear = 2024;
 
     for (const auto& rawLine : lines) {
         std::string line = core::Utils::trim(rawLine);
-        if (line.size() < 8) continue;
+        if (line.size() < 4) continue;
 
-        // Skip obvious header or footer lines
         std::string upLine = core::Utils::toUpper(line);
-        if (upLine.find("SALDO ANTERIOR") != std::string::npos || upLine.find("SALDO INICIAL") != std::string::npos) {
-            std::regex balRegex(R"([\+\-]?\s*(?:R\$\s*)?[\d\.\,]+(?:\s*[CD])?)");
-            std::smatch bMatch;
-            if (std::regex_search(line, bMatch, balRegex)) {
-                statement.initialBalance = core::Utils::parseAmount(bMatch[0].str());
+
+        // Filter initial / final balances from table
+        if (upLine.find("SALDO ANTERIOR") != std::string::npos || 
+            upLine.find("SALDO INICIAL") != std::string::npos ||
+            upLine.find("SALDO DEVEDOR ANTERIOR") != std::string::npos) {
+            auto it = std::sregex_iterator(line.begin(), line.end(), amtRegex);
+            if (it != std::sregex_iterator()) {
+                statement.initialBalance = core::Utils::parseAmount(it->str());
                 statement.hasInitialBalance = true;
             }
             continue;
         }
-        if (upLine.find("SALDO FINAL") != std::string::npos || upLine.find("SALDO ATUAL") != std::string::npos) {
-            std::regex balRegex(R"([\+\-]?\s*(?:R\$\s*)?[\d\.\,]+(?:\s*[CD])?)");
-            std::smatch bMatch;
-            if (std::regex_search(line, bMatch, balRegex)) {
-                statement.finalBalance = core::Utils::parseAmount(bMatch[0].str());
+
+        if (upLine.find("SALDO FINAL") != std::string::npos || 
+            upLine.find("SALDO ATUAL") != std::string::npos ||
+            upLine.find("SALDO DISPONIVEL") != std::string::npos ||
+            upLine.find("SALDO DISPONÍVEL") != std::string::npos) {
+            auto it = std::sregex_iterator(line.begin(), line.end(), amtRegex);
+            if (it != std::sregex_iterator()) {
+                statement.finalBalance = core::Utils::parseAmount(it->str());
                 statement.hasFinalBalance = true;
             }
             continue;
         }
 
-        std::smatch match;
-        if (std::regex_search(line, match, txRegex1)) {
+        // Ignore common header lines
+        if (upLine.find("DATA") != std::string::npos && 
+            (upLine.find("HISTORICO") != std::string::npos || upLine.find("HISTÓRICO") != std::string::npos || upLine.find("VALOR") != std::string::npos)) {
+            continue;
+        }
+        if (upLine.find("PAGINA ") != std::string::npos || upLine.find("PÁGINA ") != std::string::npos) {
+            continue;
+        }
+        if (upLine.find("OUVIDORIA") != std::string::npos || upLine.find("SAC 0800") != std::string::npos) {
+            continue;
+        }
+
+        // Check for Date match
+        std::smatch dMatch;
+        bool hasDate = std::regex_search(line, dMatch, dateRegex);
+
+        // Check for Amount matches
+        auto amtBegin = std::sregex_iterator(line.begin(), line.end(), amtRegex);
+        auto amtEnd = std::sregex_iterator();
+        std::vector<std::smatch> amtMatches;
+        for (auto it = amtBegin; it != amtEnd; ++it) {
+            amtMatches.push_back(*it);
+        }
+
+        if (hasDate && !amtMatches.empty()) {
             core::Transaction tx;
-            std::string dateStr = match[1].str();
-            tx.date = core::Utils::normalizeDate(dateStr);
-            if (tx.date.size() == 5) { // DD/MM without year
-                tx.date = std::to_string(currentYear) + "-" + dateStr.substr(3, 2) + "-" + dateStr.substr(0, 2);
-            }
-
-            tx.description = core::Utils::trim(match[2].str());
-            tx.amount = core::Utils::parseAmount(match[3].str());
-
-            if (match[4].matched && !match[4].str().empty()) {
-                tx.runningBalance = core::Utils::parseAmount(match[4].str());
-            }
-
-            if (tx.amount > 0.0) tx.type = core::TransactionType::CREDIT;
-            else if (tx.amount < 0.0) tx.type = core::TransactionType::DEBIT;
-
-            if (!tx.date.empty() && tx.amount != 0.0) {
-                statement.transactions.push_back(std::move(tx));
-            }
-        } else if (std::regex_search(line, match, txRegex2)) {
-            core::Transaction tx;
-            std::string dateStr = match[1].str();
+            std::string dateStr = dMatch[0].str();
             tx.date = core::Utils::normalizeDate(dateStr);
             if (tx.date.size() == 5) {
+                // DD/MM without year -> synthesize current year
                 tx.date = std::to_string(currentYear) + "-" + dateStr.substr(3, 2) + "-" + dateStr.substr(0, 2);
             }
 
-            tx.description = core::Utils::trim(match[2].str());
-            tx.amount = core::Utils::parseAmount(match[3].str());
+            // Determine amount and optional running balance
+            if (amtMatches.size() == 1) {
+                tx.amount = core::Utils::parseAmount(amtMatches[0].str());
+            } else if (amtMatches.size() == 2) {
+                tx.amount = core::Utils::parseAmount(amtMatches[0].str());
+                tx.runningBalance = core::Utils::parseAmount(amtMatches[1].str());
+            } else if (amtMatches.size() >= 3) {
+                // Columns [Débito, Crédito, Saldo]
+                double val1 = std::abs(core::Utils::parseAmount(amtMatches[0].str()));
+                double val2 = std::abs(core::Utils::parseAmount(amtMatches[1].str()));
+                if (val2 > 0.0) {
+                    tx.amount = val2;
+                } else if (val1 > 0.0) {
+                    tx.amount = -val1;
+                }
+                tx.runningBalance = core::Utils::parseAmount(amtMatches[2].str());
+            }
 
             if (tx.amount > 0.0) tx.type = core::TransactionType::CREDIT;
             else if (tx.amount < 0.0) tx.type = core::TransactionType::DEBIT;
 
+            // Extract Description by masking out date and amount regions
+            std::string textOnly = line;
+            // Mask date
+            textOnly.replace(dMatch.position(), dMatch.length(), std::string(dMatch.length(), ' '));
+            // Mask amounts
+            for (const auto& m : amtMatches) {
+                textOnly.replace(m.position(), m.length(), std::string(m.length(), ' '));
+            }
+
+            // Collapse whitespace and trim
+            std::string cleanDesc;
+            bool inSpace = false;
+            for (char c : textOnly) {
+                if (std::isspace(static_cast<unsigned char>(c))) {
+                    if (!inSpace) { cleanDesc.push_back(' '); inSpace = true; }
+                } else {
+                    cleanDesc.push_back(c);
+                    inSpace = false;
+                }
+            }
+            cleanDesc = core::Utils::trim(cleanDesc);
+
+            // Check if leading token is a document number (e.g. DOC1234, 001234)
+            auto tokens = core::Utils::split(cleanDesc, ' ');
+            if (tokens.size() > 1) {
+                std::string firstTok = tokens[0];
+                bool isDocLike = (firstTok.size() >= 3 && firstTok.size() <= 12 &&
+                                  (std::all_of(firstTok.begin(), firstTok.end(), [](char c){ return std::isdigit(c); }) ||
+                                   firstTok.rfind("DOC", 0) == 0));
+                if (isDocLike) {
+                    tx.documentNumber = firstTok;
+                    cleanDesc = cleanDesc.substr(firstTok.size());
+                    cleanDesc = core::Utils::trim(cleanDesc);
+                }
+            }
+
+            tx.description = cleanDesc;
+
             if (!tx.date.empty() && tx.amount != 0.0) {
                 statement.transactions.push_back(std::move(tx));
+            }
+        } else if (!hasDate && amtMatches.empty() && !statement.transactions.empty()) {
+            // Multi-line continuation: line has text but no dates and no amounts
+            if (line.size() > 2 && line.size() < 120 &&
+                upLine.find("TOTAL") == std::string::npos &&
+                upLine.find("EXTRATO") == std::string::npos &&
+                upLine.find("BANCO") == std::string::npos &&
+                upLine.find("AGENCIA") == std::string::npos &&
+                upLine.find("CONTA") == std::string::npos) {
+                statement.transactions.back().description += " " + line;
             }
         }
     }
 }
 
-std::shared_ptr<core::Statement> PdfParser::parse(const std::string& filePath) const {
+std::shared_ptr<core::Statement> PdfParser::parseFromText(const std::string& text) const {
     auto statement = std::make_shared<core::Statement>();
-    statement->sourceFilePath = filePath;
     statement->sourceFormat = core::FileFormat::PDF;
 
-    std::vector<uint8_t> bytes = core::Utils::readFileBinary(filePath);
-    if (bytes.empty()) return statement;
-
-    std::string text = extractRawTextFromPdf(bytes);
     parseBankMetadata(text, *statement);
     parseTransactionsFromText(text, *statement);
     statement->computeStatistics();
 
+    return statement;
+}
+
+std::shared_ptr<core::Statement> PdfParser::parse(const std::string& filePath) const {
+    std::vector<uint8_t> bytes = core::Utils::readFileBinary(filePath);
+    if (bytes.empty()) {
+        auto statement = std::make_shared<core::Statement>();
+        statement->sourceFilePath = filePath;
+        statement->sourceFormat = core::FileFormat::PDF;
+        return statement;
+    }
+
+    std::string text = extractRawTextFromPdf(bytes);
+    auto statement = parseFromText(text);
+    statement->sourceFilePath = filePath;
     return statement;
 }
 
