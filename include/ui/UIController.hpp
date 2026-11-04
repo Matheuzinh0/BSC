@@ -32,6 +32,7 @@ private:
     void renderTelemetryDashboard();
     void renderInspectionModal();
     void renderAboutModal();
+    void renderDirectoryPickerModal();
     void startBatchConversion();
 
     converter::ConverterEngine& m_engine;
@@ -55,6 +56,11 @@ private:
     std::shared_ptr<core::Statement> m_inspectedStatement;
     bool m_showInspectModal = false;
     bool m_showAboutModal = false;
+
+    // Directory selection modal
+    bool m_showDirPickerModal = false;
+    bool m_isSelectingOutputDir = false;
+    char m_dirPickerCurrentPath[512] = "";
 
     // Historical throughput for plot
     std::vector<float> m_throughputHistory;

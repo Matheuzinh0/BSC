@@ -158,6 +158,13 @@ void UIController::renderTargetOptionsPanel() {
     ImGui::SameLine();
     ImGui::SetNextItemWidth(450);
     ImGui::InputText("##outdir", m_outputDirBuf, sizeof(m_outputDirBuf));
+    ImGui::SameLine();
+    if (ImGui::Button("Selecionar Pasta...##out", ImVec2(170, 24))) {
+        m_isSelectingOutputDir = true;
+        std::string cur = m_outputDirBuf[0] ? m_outputDirBuf : std::filesystem::current_path().string();
+        snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", cur.c_str());
+        m_showDirPickerModal = true;
+    }
 
     ImGui::EndChild();
 }
@@ -167,7 +174,17 @@ void UIController::renderBatchQueuePanel() {
     ImGui::BeginChild("BatchQueuePanel", ImVec2(0, availHeight), true);
 
     // Top action bar
-    if (ImGui::Button("Carregar Extratos de Exemplo", ImVec2(240, 32))) {
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.45f, 0.75f, 0.9f));
+    if (ImGui::Button("Selecionar Pasta com Extratos...", ImVec2(270, 32))) {
+        m_isSelectingOutputDir = false;
+        std::string cur = std::filesystem::current_path().string();
+        snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", cur.c_str());
+        m_showDirPickerModal = true;
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::SameLine();
+    if (ImGui::Button("Carregar Amostras", ImVec2(150, 32))) {
         if (std::filesystem::exists("samples")) {
             addDirectory("samples");
         }
@@ -474,6 +491,122 @@ void UIController::renderAboutModal() {
     ImGui::End();
 }
 
+void UIController::renderDirectoryPickerModal() {
+    if (!m_showDirPickerModal) return;
+
+    ImGui::SetNextWindowSize(ImVec2(750, 480), ImGuiCond_Appearing);
+    std::string title = m_isSelectingOutputDir ? "Selecionar Pasta de Destino" : "Selecionar Pasta de Lotes com Extratos";
+    
+    if (ImGui::Begin(title.c_str(), &m_showDirPickerModal, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextColored(ImVec4(0.22f, 0.75f, 0.95f, 1.0f), "Caminho Atual:");
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        ImGui::InputText("##pickerPath", m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath));
+        ImGui::Spacing();
+
+        // Quick Jump buttons
+        const char* homeEnv = std::getenv("HOME");
+        if (!homeEnv) homeEnv = std::getenv("USERPROFILE");
+        std::string homeDir = homeEnv ? std::string(homeEnv) : ".";
+
+        if (ImGui::SmallButton(".. Subir Pasta")) {
+            std::filesystem::path p(m_dirPickerCurrentPath);
+            if (p.has_parent_path()) {
+                snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", p.parent_path().string().c_str());
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Pasta Pessoal")) {
+            snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", homeDir.c_str());
+        }
+        ImGui::SameLine();
+        std::string docsDir = (std::filesystem::path(homeDir) / "Documentos").string();
+        if (std::filesystem::exists(docsDir) && ImGui::SmallButton("Documentos")) {
+            snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", docsDir.c_str());
+        }
+        ImGui::SameLine();
+        std::string dlDir = (std::filesystem::path(homeDir) / "Downloads").string();
+        if (std::filesystem::exists(dlDir) && ImGui::SmallButton("Downloads")) {
+            snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", dlDir.c_str());
+        }
+        ImGui::SameLine();
+        std::string deskDir = (std::filesystem::path(homeDir) / "Desktop").string();
+        if (std::filesystem::exists(deskDir) && ImGui::SmallButton("Área de Trabalho")) {
+            snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", deskDir.c_str());
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Subdirectories and file preview
+        std::vector<std::string> subDirs;
+        size_t detectedStatements = 0;
+        std::filesystem::path currentPath(m_dirPickerCurrentPath);
+        std::error_code ec;
+
+        if (std::filesystem::exists(currentPath, ec) && std::filesystem::is_directory(currentPath, ec)) {
+            for (const auto& entry : std::filesystem::directory_iterator(currentPath, ec)) {
+                if (entry.is_directory(ec)) {
+                    subDirs.push_back(entry.path().filename().string());
+                } else if (entry.is_regular_file(ec)) {
+                    std::string ext = core::Utils::toLower(entry.path().extension().string());
+                    if (ext == ".pdf" || ext == ".ofx" || ext == ".csv" || ext == ".xlsx" || ext == ".qif") {
+                        detectedStatements++;
+                    }
+                }
+            }
+            std::sort(subDirs.begin(), subDirs.end());
+        }
+
+        ImGui::Text("Subpastas Disponiveis:");
+        ImGui::BeginChild("SubdirList", ImVec2(0, 210), true);
+        if (subDirs.empty()) {
+            ImGui::TextDisabled("(Nenhuma subpasta encontrada)");
+        } else {
+            for (const auto& dirName : subDirs) {
+                std::string label = "[Pasta] " + dirName;
+                if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_DontClosePopups)) {
+                    std::filesystem::path newP = currentPath / dirName;
+                    snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", newP.string().c_str());
+                }
+            }
+        }
+        ImGui::EndChild();
+
+        ImGui::Spacing();
+        if (!m_isSelectingOutputDir) {
+            ImGui::TextColored(ImVec4(0.06f, 0.72f, 0.51f, 1.0f), 
+                "Extratos financeiros suportados detectados nesta pasta raiz: %zu arquivos", detectedStatements);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (m_isSelectingOutputDir) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.72f, 0.51f, 0.9f));
+            if (ImGui::Button("DEFINIR ESTA PASTA COMO DESTINO", ImVec2(300, 32))) {
+                snprintf(m_outputDirBuf, sizeof(m_outputDirBuf), "%s", m_dirPickerCurrentPath);
+                m_showDirPickerModal = false;
+            }
+            ImGui::PopStyleColor();
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.72f, 0.51f, 0.9f));
+            if (ImGui::Button("CARREGAR TODOS OS EXTRATOS DESTA PASTA", ImVec2(360, 32))) {
+                addDirectory(m_dirPickerCurrentPath);
+                m_showDirPickerModal = false;
+            }
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancelar", ImVec2(120, 32))) {
+            m_showDirPickerModal = false;
+        }
+    }
+    ImGui::End();
+}
+
 void UIController::render() {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
@@ -490,6 +623,7 @@ void UIController::render() {
     renderTelemetryDashboard();
     renderInspectionModal();
     renderAboutModal();
+    renderDirectoryPickerModal();
 
     ImGui::End();
 }

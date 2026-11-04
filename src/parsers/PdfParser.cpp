@@ -86,11 +86,44 @@ std::string PdfParser::extractRawTextFromPdf(const std::vector<uint8_t>& pdfByte
                 size_t cPos = 0;
 
                 while (cPos < cSize) {
-                    // Look for BT (Begin Text)
-                    const char* bt = strstr(content + cPos, "BT");
-                    if (!bt || (bt - content) >= (int)cSize) break;
+                    // Look for BT (Begin Text) operator outside string literals
+                    const char* bt = nullptr;
+                    const char* bScan = content + cPos;
+                    bool inParen = false;
+                    while (bScan + 1 < content + cSize) {
+                        if (*bScan == '\\' && inParen) { bScan += 2; continue; }
+                        if (*bScan == '(') inParen = true;
+                        else if (*bScan == ')') inParen = false;
+                        else if (!inParen && bScan[0] == 'B' && bScan[1] == 'T') {
+                            bool leftOk = (bScan == content || std::isspace(static_cast<unsigned char>(bScan[-1])));
+                            bool rightOk = (bScan + 2 >= content + cSize || std::isspace(static_cast<unsigned char>(bScan[2])));
+                            if (leftOk && rightOk) {
+                                bt = bScan;
+                                break;
+                            }
+                        }
+                        bScan++;
+                    }
+                    if (!bt) break;
 
-                    const char* et = strstr(bt, "ET");
+                    // Look for matching ET (End Text) operator outside string literals
+                    const char* et = nullptr;
+                    const char* eScan = bt + 2;
+                    inParen = false;
+                    while (eScan + 1 < content + cSize) {
+                        if (*eScan == '\\' && inParen) { eScan += 2; continue; }
+                        if (*eScan == '(') inParen = true;
+                        else if (*eScan == ')') inParen = false;
+                        else if (!inParen && eScan[0] == 'E' && eScan[1] == 'T') {
+                            bool leftOk = (eScan == content || std::isspace(static_cast<unsigned char>(eScan[-1])));
+                            bool rightOk = (eScan + 2 >= content + cSize || std::isspace(static_cast<unsigned char>(eScan[2])));
+                            if (leftOk && rightOk) {
+                                et = eScan;
+                                break;
+                            }
+                        }
+                        eScan++;
+                    }
                     if (!et) et = content + cSize;
 
                     std::string_view block(bt, et - bt);
@@ -130,6 +163,13 @@ std::string PdfParser::extractRawTextFromPdf(const std::vector<uint8_t>& pdfByte
                             }
                             fullText += cleaned + " ";
                             bPos = pClose;
+
+                            // If followed by line break operators (' or T* or explicit newline)
+                            size_t nextP = block.find('(', bPos);
+                            std::string_view between = (nextP == std::string_view::npos) ? block.substr(bPos) : block.substr(bPos, nextP - bPos);
+                            if (between.find('\'') != std::string_view::npos || between.find("T*") != std::string_view::npos) {
+                                fullText += "\n";
+                            }
                         } else {
                             bPos = pOpen + 1;
                         }

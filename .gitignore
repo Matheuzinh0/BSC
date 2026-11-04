@@ -9,6 +9,8 @@ lib/
 
 # Generated conversion output
 dist/
+test_output/
+test_batch/
 
 # System / IDE
 .vscode/

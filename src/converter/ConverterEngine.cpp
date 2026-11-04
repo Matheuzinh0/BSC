@@ -154,8 +154,13 @@ void ConverterEngine::processBatchAsync(
                     inPath.parent_path() : std::filesystem::path(taskPtr->outputDirectory);
 
                 for (core::FileFormat targetFmt : taskPtr->targetFormats) {
+                    std::string fmtFolder = core::formatToString(targetFmt);
+                    std::filesystem::path formatDir = outDir / fmtFolder;
+                    std::error_code dirEc;
+                    std::filesystem::create_directories(formatDir, dirEc);
+
                     std::string outExt = core::formatToExtension(targetFmt);
-                    std::filesystem::path targetFile = outDir / (stem + "_converted" + outExt);
+                    std::filesystem::path targetFile = formatDir / (stem + outExt);
 
                     bool ok = this->convertStatement(*(taskPtr->parsedStatement), targetFmt, targetFile.string());
                     if (ok) {
@@ -164,7 +169,7 @@ void ConverterEngine::processBatchAsync(
                         taskPtr->outputSizeBytes += std::filesystem::file_size(targetFile, oec);
                     } else {
                         allSucceeded = false;
-                        taskPtr->errorMessage += "Falha ao exportar " + core::formatToString(targetFmt) + "; ";
+                        taskPtr->errorMessage += "Falha ao exportar " + fmtFolder + "; ";
                     }
                 }
 

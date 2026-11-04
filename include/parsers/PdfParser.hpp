@@ -21,8 +21,6 @@ public:
 
     void parseBankMetadata(const std::string& text, core::Statement& statement) const;
     void parseTransactionsFromText(const std::string& text, core::Statement& statement) const;
-
-private:
     std::string extractRawTextFromPdf(const std::vector<uint8_t>& pdfBytes) const;
 };
 

@@ -5,7 +5,7 @@ Summary:        Bank Statement Conversion (BSC)
 License:        MIT
 URL:            https://github.com/Matheuzinh0/BSC
 
-Requires:       glibc >= 2.31, mesa-libGL, glfw >= 3.3
+Requires:       glibc >= 2.31, mesa-libGL
 
 %description
 Ultra-lightweight and high-throughput financial statement conversion

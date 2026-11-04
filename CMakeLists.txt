@@ -29,6 +29,7 @@ endif()
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor
+    ${CMAKE_CURRENT_SOURCE_DIR}/vendor/glfw/include
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor/imgui/backends
     ${CMAKE_CURRENT_SOURCE_DIR}/vendor/miniz
@@ -72,6 +73,8 @@ target_link_libraries(BSCCore PUBLIC miniz)
 # Find GUI dependencies
 find_package(OpenGL REQUIRED)
 
+set(GLFW_STATIC_LIB "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glfw/lib/libglfw3.a")
+
 # Executable: BSC (Main GUI & Headless Batch Application)
 add_executable(BSC
     src/main.cpp
@@ -83,9 +86,11 @@ target_link_libraries(BSC PRIVATE
     BSCCore
     imgui
     OpenGL::GL
-    glfw
+    ${GLFW_STATIC_LIB}
+    X11
     pthread
     ${CMAKE_DL_LIBS}
+    m
 )
 
 # Test Suite Executable

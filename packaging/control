@@ -3,7 +3,7 @@ Version: 2.5.0
 Architecture: amd64
 Maintainer: Matheus Sousa <matheus@ufpe.br>
 Installed-Size: 3200
-Depends: libc6 (>= 2.31), libgl1, libglfw3 (>= 3.3)
+Depends: libc6 (>= 2.31), libgl1
 Section: utils
 Priority: optional
 Homepage: https://github.com/Matheuzinh0/BSC
