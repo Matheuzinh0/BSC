@@ -1,6 +1,11 @@
 # BSC - Bank Statement Conversion (v2.5)
 ## Sistema Universal de Conversao de Extratos Bancarios em C++20
 
+[![CI](https://github.com/Matheuzinh0/BSC/actions/workflows/ci.yml/badge.svg)](https://github.com/Matheuzinh0/BSC/actions/workflows/ci.yml)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-lightgrey.svg)]()
+
 **Desenvolvido por Matheus Sousa, Laboratorio de Comunicacao e Seguranca da Informacao, Departamento de Eletronica e Sistemas, Centro de Tecnologia e Geociencias, Universidade Federal de Pernambuco (CTG-UFPE).**
 
 Licenca: **MIT License**

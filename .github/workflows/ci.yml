@@ -1,0 +1,37 @@
+name: BSC Continuous Integration (C++20)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build & Unit Tests (Ubuntu Latest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libglfw3-dev libgl1-mesa-dev xorg-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile BSC & Test Suite
+        run: |
+          cmake --build build --config Release -j$(nproc)
+
+      - name: Execute Universal Test Suite
+        run: |
+          ./build/test_converters
+
+      - name: Execute CLI Batch Verification
+        run: |
+          ./build/BSC --batch samples/ --to ofx,csv,xlsx,pdf,json --out test_ci_out --audit
