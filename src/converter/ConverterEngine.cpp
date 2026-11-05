@@ -14,11 +14,13 @@
 #include "parsers/CsvParser.hpp"
 #include "parsers/XlsxParser.hpp"
 #include "parsers/QifParser.hpp"
+#include "parsers/JsonParser.hpp"
 #include "encoders/OfxEncoder.hpp"
 #include "encoders/CsvEncoder.hpp"
 #include "encoders/XlsxEncoder.hpp"
 #include "encoders/QifEncoder.hpp"
 #include "encoders/PdfEncoder.hpp"
+#include "encoders/JsonEncoder.hpp"
 #include <filesystem>
 #include <chrono>
 
@@ -36,6 +38,7 @@ void ConverterEngine::registerComponents() {
     m_parsers.push_back(std::make_unique<parsers::CsvParser>());
     m_parsers.push_back(std::make_unique<parsers::XlsxParser>());
     m_parsers.push_back(std::make_unique<parsers::QifParser>());
+    m_parsers.push_back(std::make_unique<parsers::JsonParser>());
 
     // Register Encoders
     m_encoders[core::FileFormat::OFX] = std::make_unique<encoders::OfxEncoder>();
@@ -43,6 +46,7 @@ void ConverterEngine::registerComponents() {
     m_encoders[core::FileFormat::XLSX] = std::make_unique<encoders::XlsxEncoder>();
     m_encoders[core::FileFormat::QIF] = std::make_unique<encoders::QifEncoder>();
     m_encoders[core::FileFormat::PDF] = std::make_unique<encoders::PdfEncoder>();
+    m_encoders[core::FileFormat::JSON] = std::make_unique<encoders::JsonEncoder>();
 }
 
 core::FileFormat ConverterEngine::detectFormat(const std::string& filePath) const {
@@ -67,6 +71,7 @@ core::FileFormat ConverterEngine::detectFormat(const std::string& filePath) cons
     if (ext == ".csv" || ext == ".txt") return core::FileFormat::CSV;
     if (ext == ".xlsx" || ext == ".xls") return core::FileFormat::XLSX;
     if (ext == ".qif") return core::FileFormat::QIF;
+    if (ext == ".json" || ext == ".jsonl") return core::FileFormat::JSON;
 
     return core::FileFormat::UNKNOWN;
 }

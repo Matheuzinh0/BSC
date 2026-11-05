@@ -47,10 +47,12 @@ private:
     bool m_targetXlsx = true;
     bool m_targetQif = false;
     bool m_targetPdf = false;
+    bool m_targetJson = false;
 
     // Output directory
     char m_outputDirBuf[512] = "";
     char m_searchFilterBuf[128] = "";
+    int m_filterTypeIndex = 0; // 0=All, 1=Credits, 2=Debits, 3=Pix
 
     // Selected statement for detailed preview
     std::shared_ptr<core::Statement> m_inspectedStatement;

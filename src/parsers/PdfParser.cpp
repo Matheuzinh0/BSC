@@ -205,6 +205,32 @@ std::string PdfParser::extractRawTextFromPdf(const std::vector<uint8_t>& pdfByte
                                         decoded.push_back(byteVal);
                                     } catch (...) {}
                                 }
+
+                                // Handle UTF-16BE encoded hex strings common in banking PDFs
+                                if (decoded.size() >= 2) {
+                                    if (static_cast<unsigned char>(decoded[0]) == 0xFE && static_cast<unsigned char>(decoded[1]) == 0xFF) {
+                                        std::string utf8;
+                                        for (size_t i = 2; i + 1 < decoded.size(); i += 2) {
+                                            uint16_t ch = (static_cast<uint8_t>(decoded[i]) << 8) | static_cast<uint8_t>(decoded[i + 1]);
+                                            if (ch >= 32 && ch < 127) utf8.push_back(static_cast<char>(ch));
+                                            else utf8.push_back(' ');
+                                        }
+                                        decoded = utf8;
+                                    } else if (decoded.size() % 2 == 0) {
+                                        bool allEvenZeros = true;
+                                        for (size_t i = 0; i < decoded.size(); i += 2) {
+                                            if (decoded[i] != 0) { allEvenZeros = false; break; }
+                                        }
+                                        if (allEvenZeros) {
+                                            std::string cleanAscii;
+                                            for (size_t i = 1; i < decoded.size(); i += 2) {
+                                                cleanAscii.push_back(decoded[i]);
+                                            }
+                                            decoded = cleanAscii;
+                                        }
+                                    }
+                                }
+
                                 fullText += decoded + " ";
                                 bPos = hClose + 1;
                             } else {

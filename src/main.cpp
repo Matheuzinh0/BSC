@@ -20,6 +20,7 @@ int main(int argc, char* argv[]) {
     std::ios_base::sync_with_stdio(false);
 
     bool headless = false;
+    bool runAudit = false;
     std::vector<std::string> inputFiles;
     std::vector<ofx::core::FileFormat> cliTargets;
     std::string cliOutDir = "";
@@ -28,6 +29,12 @@ int main(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "--headless" || arg == "--cli" || arg == "-c" || arg == "--batch") {
             headless = true;
+        } else if (arg == "--audit" || arg == "--validate") {
+            runAudit = true;
+        } else if (arg == "--version" || arg == "-v") {
+            std::cout << "BSC (Bank Statement Conversion) versao 2.5.0\n";
+            std::cout << "Desenvolvido por Matheus Sousa, CTG-UFPE.\n";
+            return 0;
         } else if (arg == "--to" && i + 1 < argc) {
             std::string toList = argv[++i];
             auto parts = ofx::core::Utils::split(toList, ',');
@@ -47,13 +54,21 @@ int main(int argc, char* argv[]) {
             std::cout << "===================================================================\n";
             std::cout << "Uso no Modo Grafico:  ./BSC [arquivos ou pastas...]\n";
             std::cout << "Uso no Modo Linha de Comando (CLI Batch Engine):\n";
-            std::cout << "  ./BSC --batch <arquivo1> <arquivo2...> --to ofx,csv,xlsx,qif,pdf [--out ./saida]\n\n";
+            std::cout << "  ./BSC --batch <arquivo1> <arquivo2...> --to ofx,csv,xlsx,qif,pdf,json [--out ./saida] [--audit]\n\n";
             std::cout << "Formatos Suportados (Qualquer para Qualquer):\n";
-            std::cout << "  PDF  -> OFX, CSV, XLSX, QIF, PDF\n";
-            std::cout << "  OFX  -> CSV, XLSX, QIF, PDF, OFX\n";
-            std::cout << "  CSV  -> OFX, XLSX, QIF, PDF, CSV\n";
-            std::cout << "  XLSX -> OFX, CSV, QIF, PDF, XLSX\n";
-            std::cout << "  QIF  -> OFX, CSV, XLSX, PDF, QIF\n";
+            std::cout << "  PDF  -> OFX, CSV, XLSX, QIF, PDF, JSON\n";
+            std::cout << "  OFX  -> CSV, XLSX, QIF, PDF, OFX, JSON\n";
+            std::cout << "  CSV  -> OFX, XLSX, QIF, PDF, CSV, JSON\n";
+            std::cout << "  XLSX -> OFX, CSV, QIF, PDF, XLSX, JSON\n";
+            std::cout << "  QIF  -> OFX, CSV, XLSX, PDF, QIF, JSON\n";
+            std::cout << "  JSON -> OFX, CSV, XLSX, QIF, PDF, JSON\n\n";
+            std::cout << "Opcoes:\n";
+            std::cout << "  --batch, -c       Ativa execucao em lote em modo linha de comando\n";
+            std::cout << "  --to <formatos>   Formatos de destino separados por virgula (ofx,csv,xlsx,pdf,qif,json)\n";
+            std::cout << "  --out <pasta>     Diretorio de gravacao dos arquivos gerados\n";
+            std::cout << "  --audit           Executa auditoria e reconciliacao aritmetica de saldo e duplicatas\n";
+            std::cout << "  --version, -v     Exibe versao e creditos\n";
+            std::cout << "  --help, -h        Exibe esta mensagem de ajuda\n";
             return 0;
         } else {
             inputFiles.push_back(arg);
@@ -107,11 +122,19 @@ int main(int argc, char* argv[]) {
         std::atomic<bool> done{false};
         engine.processBatchAsync(
             tasks,
-            [](const ofx::core::BatchConversionTask& task) {
+            [runAudit](const ofx::core::BatchConversionTask& task) {
                 if (task.status == ofx::core::BatchConversionTask::Status::COMPLETED) {
                     std::cout << "  [OK] " << task.inputFilePath << " -> " 
                               << task.parsedStatement->transactions.size() << " transacoes ("
                               << task.totalTimeMs << " ms, " << task.throughputTxSec << " Tx/s)\n";
+
+                    if (runAudit && task.parsedStatement) {
+                        std::cout << "       Auditoria: " 
+                                  << ofx::core::auditStatusToString(task.parsedStatement->auditStatus) << "\n";
+                        for (const auto& w : task.parsedStatement->auditWarnings) {
+                            std::cout << "       * ALERTA: " << w << "\n";
+                        }
+                    }
                 } else if (task.status == ofx::core::BatchConversionTask::Status::FAILED) {
                     std::cerr << "  [FALHA] " << task.inputFilePath << ": " << task.errorMessage << "\n";
                 }

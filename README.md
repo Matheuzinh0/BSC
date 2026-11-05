@@ -19,28 +19,33 @@ O software opera de maneira autonoma, sem runtimes pesados ou navegadores embuti
 
 O BSC implementa uma arquitetura baseada em Modelo Intermediario Canonico (IR). Qualquer extrato de entrada e normalizado e pode ser convertido simultaneamente para qualquer combinacao dos formatos de destino suportados:
 
-| Formato de Entrada / Saida | PDF | OFX | CSV | XLSX | QIF |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **PDF** | Sim | Sim | Sim | Sim | Sim |
-| **OFX** | Sim | Sim | Sim | Sim | Sim |
-| **CSV** | Sim | Sim | Sim | Sim | Sim |
-| **XLSX**| Sim | Sim | Sim | Sim | Sim |
-| **QIF** | Sim | Sim | Sim | Sim | Sim |
+| Formato de Entrada / Saida | PDF | OFX | CSV | XLSX | QIF | JSON |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **PDF** | Sim | Sim | Sim | Sim | Sim | Sim |
+| **OFX** | Sim | Sim | Sim | Sim | Sim | Sim |
+| **CSV** | Sim | Sim | Sim | Sim | Sim | Sim |
+| **XLSX**| Sim | Sim | Sim | Sim | Sim | Sim |
+| **QIF** | Sim | Sim | Sim | Sim | Sim | Sim |
+| **JSON**| Sim | Sim | Sim | Sim | Sim | Sim |
 
 Formatos suportados:
-- **PDF**: Analise inteligente de streams textuais com suporte a layouts bancarios nacionais (Banco do Brasil, Itau, Bradesco, Santander, Caixa, Nubank, Inter, Sicoob, Sicredi, BTG Pactual, Mercado Pago / Mercado Livre, etc.) e pipeline integrado de OCR (Optical Character Recognition) em C++ para processamento automatico de extratos digitalizados ou em formato raster/imagem. Geracao de relatorios vetoriais consolidados.
-- **OFX (Open Financial Exchange)**: Conformidade com versoes 1.02 (SGML) e 2.x (XML), compativel com QuickBooks, ContaAzul, Omie e ERPs contabeis.
-- **CSV (RFC 4180)**: Deteccao automatica de delimitador (ponto-e-virgula, virgula, tabulacao) e interpretacao de valores monetarios brasileiros e internacionais.
+- **PDF**: Analise inteligente de streams textuais com suporte a layouts bancarios nacionais (Banco do Brasil, Itau, Bradesco, Santander, Caixa, Nubank, Inter, Sicoob, Sicredi, BTG Pactual, Mercado Pago / Mercado Livre, etc.), decodificacao de streams hexadecimais UTF-16BE e pipeline integrado de OCR em C++ para extratos digitalizados. Geracao de relatorios vetoriais consolidados multipaginas com cabecalhos continuos, numeracao de paginas e selo de auditoria SHA-256.
+- **OFX (Open Financial Exchange)**: Conformidade com versoes 1.02 (SGML) e 2.x (XML), suporte a extratos de Conta Corrente (`<STMTRS>`) e Cartao de Credito (`<CCSTMTRS>`), compativel com QuickBooks, ContaAzul, Omie e ERPs contabeis.
+- **CSV (RFC 4180)**: Deteccao automatica de delimitador (ponto-e-virgula, virgula, tabulacao), deteccao inteligente de linhas de metadados pre-cabecalho e interpretacao de valores monetarios brasileiros e internacionais.
 - **XLSX (Microsoft Excel OpenXML)**: Leitura e gravacao nativa em C++ sem dependencias externas pesadas, incluindo celulas estilizadas, cores para debitos/creditos e somatorios.
 - **QIF (Quicken Interchange Format)**: Formato padrao para sistemas Quicken e GnuCash.
+- **JSON / JSON-Lines**: Estrutura orientada a dados moderna para integracao direta com REST APIs, Open Finance Brasil, scripts Python e analise de dados (pandas / BigQuery).
 
 ---
 
 ### 3. Principais Caracteristicas
 
+- **Geracao de Relatorios Vetoriais Multipaginas**: Motor nativo de criacao de PDF vetorial com paginacao dinamica, cabecalhos correntes com metadados do banco e conta em paginas continuas, numeracao de paginas ("Pagina K de N") e selo de integridade criptografica SHA-256.
+- **Auditoria Contabil e Reconciliacao Aritmetica**: Verificacao matematica automatica de paridade: `Saldo Inicial + Total Creditos - Total Debitos == Saldo Final`. Deteccao automatica de discrepancias e deteccao de transacoes duplicadas via hash SHA-256.
+- **Classificacao Inteligente e Extracao de Pix**: Motor de categorizacao automatica baseado em regras (Salario, Alimentacao, Transporte, Utilidades/Contas, Tributos, Tarifas, Investimentos, Habitacao, Lazer/Streaming, etc.) com extracao automatica de chaves Pix (CPF, CNPJ, Email, Telefone, Chave Aleatoria EVP) e Identificador End-to-End (E2E).
 - **Pipeline Hibrido de Reconhecimento Optico (OCR)**: Motor OCR nativo em C++ integrado com binarizacao adaptativa por imagem integral (Bradley-Roth), segmentacao de linhas/glifos por perfis de projecao, classificacao topologica com analise de lacos fechados e correcao contextual automatica para extratos digitalizados/escaneados ou convertidos em imagem. Aceleracao transparente via Tesseract quando disponivel no sistema.
 - **Compatibilidade Completa com Fintechs e Mercado Livre**: Suporte nativo a extratos do Mercado Pago e Mercado Livre (codigo de compensacao 323), datas por extenso com preposicoes ("24 de outubro de 2023", "15 de out"), notacoes de valor com sinal invertido ("R$ -150,00"), identificadores de operacao (#...) e colunas de Entrada/Saida.
-- **Processamento Concorrente em Lote**: ThreadPool auto-adaptativo que dimensiona o paralelismo de acordo com os nucleos da CPU, processando centenas de extratos por segundo.
+- **Processamento Concorrente em Lote**: ThreadPool auto-adaptativo que dimensiona o paralelismo de acordo com os nucleos da CPU, processando centenas de extratos por segundo (> 10.000 Tx/s).
 - **Seguranca e Privacidade**: Operacao 100% local (air-gapped), sem conexoes de rede externas ou telemetria remota.
 - **Integridade Criptografica**: Geracao de hash SHA-256 para cada transacao e extrato consolidado, garantindo rastreabilidade, auditoria e desduplicao.
 - **Validacao Contabil**: Verificacao automatica de paridade entre saldo inicial, lancamentos e saldo final.
@@ -135,11 +140,11 @@ Interface moderna, escura e de baixa latencia com suporte a arrastar e soltar:
 #### 6.2. Linha de Comando (Modo Batch Headless)
 Ideal para scripts de conciliacao, servidores e automacoes:
 ```bash
-# Converter arquivos especificos para OFX, CSV e XLSX
-./build/BSC --batch extrato1.pdf extrato2.csv --to ofx,csv,xlsx --out ./saida
+# Converter arquivos especificos para OFX, CSV, XLSX e JSON com auditoria contabil
+./build/BSC --batch extrato1.pdf extrato2.csv --to ofx,csv,xlsx,json --out ./saida --audit
 
-# Processar recursivamente um diretorio inteiro
-./build/BSC --batch /caminho/extratos/ --to ofx,xlsx,qif,pdf --out ./saida
+# Processar recursivamente um diretorio inteiro para todos os formatos
+./build/BSC --batch /caminho/extratos/ --to ofx,xlsx,qif,pdf,json --out ./saida --audit
 ```
 
 ---

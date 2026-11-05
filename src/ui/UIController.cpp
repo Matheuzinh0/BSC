@@ -69,6 +69,7 @@ void UIController::startBatchConversion() {
     if (m_targetXlsx) targets.push_back(core::FileFormat::XLSX);
     if (m_targetQif)  targets.push_back(core::FileFormat::QIF);
     if (m_targetPdf)  targets.push_back(core::FileFormat::PDF);
+    if (m_targetJson) targets.push_back(core::FileFormat::JSON);
 
     if (targets.empty()) return;
 
@@ -152,6 +153,8 @@ void UIController::renderTargetOptionsPanel() {
     ImGui::Checkbox("QIF (Quicken Interchange Format)", &m_targetQif);
     ImGui::SameLine(320);
     ImGui::Checkbox("PDF (Relatório Vetorial Financeiro)", &m_targetPdf);
+    ImGui::SameLine(600);
+    ImGui::Checkbox("JSON (Open Finance / REST API)", &m_targetJson);
 
     ImGui::Spacing();
     ImGui::Text("Diretório de Destino (em branco = mesma pasta de origem):");
@@ -352,7 +355,7 @@ void UIController::renderTelemetryDashboard() {
 void UIController::renderInspectionModal() {
     if (!m_showInspectModal || !m_inspectedStatement) return;
 
-    ImGui::SetNextWindowSize(ImVec2(900, 560), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(980, 600), ImGuiCond_Appearing);
     if (ImGui::Begin("Inspeção de Extrato Bancário", &m_showInspectModal, ImGuiWindowFlags_NoCollapse)) {
         ImGui::Text("Arquivo: %s", m_inspectedStatement->sourceFilePath.c_str());
         ImGui::Text("Banco: %s (%s) | Ag: %s | CC: %s | Moeda: %s",
@@ -362,6 +365,23 @@ void UIController::renderInspectionModal() {
             m_inspectedStatement->account.accountId.c_str(),
             m_inspectedStatement->account.currency.c_str()
         );
+
+        // Audit & Reconciliation Banner
+        if (m_inspectedStatement->auditStatus == core::AuditStatus::VERIFIED) {
+            ImGui::TextColored(ImVec4(0.06f, 0.72f, 0.51f, 1.0f), 
+                "[AUDITORIA: Conciliação Contábil 100%% Válida (Saldo Inicial + Créditos - Débitos = Saldo Final)]");
+        } else if (m_inspectedStatement->auditStatus == core::AuditStatus::DISCREPANCY) {
+            ImGui::TextColored(ImVec4(0.95f, 0.25f, 0.25f, 1.0f), 
+                "[ALERTA CONTÁBIL: Discrepância de R$ %s detectada na conciliação!]",
+                core::Utils::formatCurrency(m_inspectedStatement->auditDiscrepancy, true).c_str());
+        } else {
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), 
+                "[AUDITORIA: Saldos inicial/final parciais - Verificação aritmética baseada nos lançamentos]");
+        }
+
+        for (const auto& w : m_inspectedStatement->auditWarnings) {
+            ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.15f, 1.0f), "  * %s", w.c_str());
+        }
 
         ImGui::Separator();
 
@@ -382,28 +402,43 @@ void UIController::renderInspectionModal() {
         ImGui::Spacing();
         ImGui::SetNextItemWidth(300);
         ImGui::InputTextWithHint("##filter", "Filtrar por data, descrição ou doc...", m_searchFilterBuf, sizeof(m_searchFilterBuf));
+        
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(180);
+        const char* filterOptions[] = {"Todas as Transações", "Apenas Créditos (+)", "Apenas Débitos (-)", "Apenas Pix"};
+        ImGui::Combo("##typeFilter", &m_filterTypeIndex, filterOptions, IM_ARRAYSIZE(filterOptions));
+
         ImGui::Spacing();
 
         std::string filter(m_searchFilterBuf);
         filter = core::Utils::toLower(filter);
 
-        if (ImGui::BeginTable("InspectTable", 6, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
-            ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+        if (ImGui::BeginTable("InspectTable", 7, ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
+            ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthFixed, 85.0f);
             ImGui::TableSetupColumn("Descrição", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Doc / FITID", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("Tipo", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-            ImGui::TableSetupColumn("Valor (R$)", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("Hash SHA-256", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+            ImGui::TableSetupColumn("Categoria", ImGuiTableColumnFlags_WidthFixed, 130.0f);
+            ImGui::TableSetupColumn("Doc / FITID", ImGuiTableColumnFlags_WidthFixed, 95.0f);
+            ImGui::TableSetupColumn("Tipo", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+            ImGui::TableSetupColumn("Valor (R$)", ImGuiTableColumnFlags_WidthFixed, 105.0f);
+            ImGui::TableSetupColumn("Hash SHA-256", ImGuiTableColumnFlags_WidthFixed, 115.0f);
             ImGui::TableHeadersRow();
 
             for (const auto& tx : m_inspectedStatement->transactions) {
+                // Type filter
+                if (m_filterTypeIndex == 1 && !tx.isCredit()) continue;
+                if (m_filterTypeIndex == 2 && !tx.isDebit()) continue;
+                if (m_filterTypeIndex == 3 && tx.description.find("Pix") == std::string::npos && 
+                    tx.description.find("PIX") == std::string::npos && tx.category.find("Pix") == std::string::npos) continue;
+
                 if (!filter.empty()) {
                     std::string desc = core::Utils::toLower(tx.description);
                     std::string date = tx.date;
                     std::string doc = core::Utils::toLower(tx.documentNumber);
+                    std::string cat = core::Utils::toLower(tx.category);
                     if (desc.find(filter) == std::string::npos && 
                         date.find(filter) == std::string::npos &&
-                        doc.find(filter) == std::string::npos) {
+                        doc.find(filter) == std::string::npos &&
+                        cat.find(filter) == std::string::npos) {
                         continue;
                     }
                 }
@@ -417,17 +452,28 @@ void UIController::renderInspectionModal() {
                 // 1: Descrição
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%s", tx.description.c_str());
+                if (!tx.pixKey.empty() || !tx.pixE2eId.empty()) {
+                    if (ImGui::IsItemHovered()) {
+                        std::string tip = "Chave Pix: " + (tx.pixKey.empty() ? "N/D" : tx.pixKey) + 
+                                          "\nE2E ID: " + (tx.pixE2eId.empty() ? "N/D" : tx.pixE2eId);
+                        ImGui::SetTooltip("%s", tip.c_str());
+                    }
+                }
 
-                // 2: Documento
+                // 2: Categoria
                 ImGui::TableSetColumnIndex(2);
+                ImGui::TextColored(ImVec4(0.85f, 0.85f, 0.4f, 1.0f), "%s", tx.category.c_str());
+
+                // 3: Documento
+                ImGui::TableSetColumnIndex(3);
                 ImGui::Text("%s", tx.documentNumber.c_str());
 
-                // 3: Tipo
-                ImGui::TableSetColumnIndex(3);
+                // 4: Tipo
+                ImGui::TableSetColumnIndex(4);
                 ImGui::Text("%s", tx.isCredit() ? "CRED" : "DEB");
 
-                // 4: Valor
-                ImGui::TableSetColumnIndex(4);
+                // 5: Valor
+                ImGui::TableSetColumnIndex(5);
                 std::string valStr = core::Utils::formatCurrency(tx.amount, true);
                 if (tx.isCredit()) {
                     ImGui::TextColored(ImVec4(0.06f, 0.72f, 0.51f, 1.0f), "%s", valStr.c_str());
@@ -435,9 +481,9 @@ void UIController::renderInspectionModal() {
                     ImGui::TextColored(ImVec4(0.95f, 0.25f, 0.25f, 1.0f), "%s", valStr.c_str());
                 }
 
-                // 5: Hash SHA-256
-                ImGui::TableSetColumnIndex(5);
-                std::string shortHash = tx.hashSha256.substr(0, 14) + "..";
+                // 6: Hash SHA-256
+                ImGui::TableSetColumnIndex(6);
+                std::string shortHash = tx.hashSha256.substr(0, 10) + "..";
                 ImGui::TextDisabled("%s", shortHash.c_str());
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("%s", tx.hashSha256.c_str());
@@ -448,7 +494,26 @@ void UIController::renderInspectionModal() {
         }
 
         ImGui::Spacing();
-        if (ImGui::Button("Fechar", ImVec2(100, 28))) {
+        ImGui::Text("Exportação Individual Imediata:");
+        ImGui::SameLine();
+        auto quickExport = [this](core::FileFormat fmt) {
+            std::filesystem::path p(m_inspectedStatement->sourceFilePath);
+            std::string outPath = (p.parent_path() / (p.stem().string() + "_converted" + core::formatToExtension(fmt))).string();
+            m_engine.convertStatement(*m_inspectedStatement, fmt, outPath);
+        };
+
+        if (ImGui::Button("-> OFX", ImVec2(70, 24))) quickExport(core::FileFormat::OFX);
+        ImGui::SameLine();
+        if (ImGui::Button("-> CSV", ImVec2(70, 24))) quickExport(core::FileFormat::CSV);
+        ImGui::SameLine();
+        if (ImGui::Button("-> XLSX", ImVec2(70, 24))) quickExport(core::FileFormat::XLSX);
+        ImGui::SameLine();
+        if (ImGui::Button("-> PDF", ImVec2(70, 24))) quickExport(core::FileFormat::PDF);
+        ImGui::SameLine();
+        if (ImGui::Button("-> JSON", ImVec2(70, 24))) quickExport(core::FileFormat::JSON);
+
+        ImGui::SameLine(ImGui::GetWindowWidth() - 110);
+        if (ImGui::Button("Fechar", ImVec2(90, 24))) {
             m_showInspectModal = false;
         }
     }

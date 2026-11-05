@@ -17,7 +17,9 @@ bool OfxParser::canParse(const std::string& filePath, const uint8_t* headerData,
     std::string_view header(reinterpret_cast<const char*>(headerData), std::min(headerSize, size_t(512)));
     if (header.find("OFXHEADER") != std::string_view::npos ||
         header.find("<OFX>") != std::string_view::npos ||
-        header.find("<ofx>") != std::string_view::npos) {
+        header.find("<ofx>") != std::string_view::npos ||
+        header.find("<CCSTMTRS>") != std::string_view::npos ||
+        header.find("<STMTRS>") != std::string_view::npos) {
         return true;
     }
     return filePath.size() >= 4 && core::Utils::toLower(filePath.substr(filePath.size() - 4)) == ".ofx";
@@ -125,9 +127,17 @@ std::shared_ptr<core::Statement> OfxParser::parse(const std::string& filePath) c
     if (content.empty()) return statement;
 
     statement->account.bankId = extractTagValue(content, "BANKID");
+    if (statement->account.bankId.empty()) {
+        statement->account.bankId = extractTagValue(content, "FID");
+    }
+    statement->account.bankName = extractTagValue(content, "ORG");
     statement->account.branchId = extractTagValue(content, "BRANCHID");
     statement->account.accountId = extractTagValue(content, "ACCTID");
     statement->account.accountType = extractTagValue(content, "ACCTTYPE");
+    if (statement->account.accountType.empty() && 
+        (content.find("<CCSTMTRS>") != std::string::npos || content.find("<CCSTMTTRNRS>") != std::string::npos)) {
+        statement->account.accountType = "CREDITCARD";
+    }
     statement->account.currency = extractTagValue(content, "CURDEF");
     if (statement->account.currency.empty()) statement->account.currency = "BRL";
 

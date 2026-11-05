@@ -24,6 +24,7 @@ enum class FileFormat {
     CSV,
     XLSX,
     QIF,
+    JSON,
     UNKNOWN
 };
 
@@ -34,6 +35,7 @@ inline std::string formatToString(FileFormat fmt) {
         case FileFormat::CSV:  return "CSV";
         case FileFormat::XLSX: return "XLSX";
         case FileFormat::QIF:  return "QIF";
+        case FileFormat::JSON: return "JSON";
         default:               return "UNKNOWN";
     }
 }
@@ -44,6 +46,7 @@ inline FileFormat stringToFormat(std::string_view str) {
     if (str == "CSV" || str == "csv") return FileFormat::CSV;
     if (str == "XLSX" || str == "xlsx") return FileFormat::XLSX;
     if (str == "QIF" || str == "qif") return FileFormat::QIF;
+    if (str == "JSON" || str == "json") return FileFormat::JSON;
     return FileFormat::UNKNOWN;
 }
 
@@ -54,6 +57,7 @@ inline std::string formatToExtension(FileFormat fmt) {
         case FileFormat::CSV:  return ".csv";
         case FileFormat::XLSX: return ".xlsx";
         case FileFormat::QIF:  return ".qif";
+        case FileFormat::JSON: return ".json";
         default:               return ".dat";
     }
 }
@@ -88,6 +92,8 @@ struct Transaction {
     std::string documentNumber;  // Document ID / Cheque / Doc number
     std::optional<double> runningBalance; // Optional running balance
     std::string category;        // Auto-categorized or extracted
+    std::string pixKey;          // Detected Pix key (CPF/CNPJ/Email/Phone/EVP)
+    std::string pixE2eId;        // Pix EndToEnd ID
     std::string hashSha256;      // Cryptographic hash for non-repudiation & deduplication
 
     bool isCredit() const { return amount > 0.0; }
@@ -102,6 +108,21 @@ struct AccountMetadata {
     std::string accountType;     // CHECKING, SAVINGS, CREDITCARD
     std::string currency = "BRL";// BRL, USD, EUR
 };
+
+enum class AuditStatus {
+    VERIFIED,             // Mathematical parity confirmed
+    DISCREPANCY,          // Balance discrepancy detected
+    INCOMPLETE_BALANCES   // Initial or final balance not provided
+};
+
+inline std::string auditStatusToString(AuditStatus s) {
+    switch (s) {
+        case AuditStatus::VERIFIED:            return "VERIFICADO (100% EXATO)";
+        case AuditStatus::DISCREPANCY:         return "DISCREPANCIA DETECTADA";
+        case AuditStatus::INCOMPLETE_BALANCES: return "SALDOS INCOMPLETOS";
+        default:                               return "N/D";
+    }
+}
 
 struct Statement {
     std::string sourceFilePath;
@@ -126,7 +147,14 @@ struct Statement {
     size_t creditCount = 0;
     size_t debitCount = 0;
 
+    // Audit and accounting reconciliation
+    AuditStatus auditStatus = AuditStatus::INCOMPLETE_BALANCES;
+    double auditDiscrepancy = 0.0;
+    std::vector<std::string> auditWarnings;
+
     void computeStatistics();
+    void autoCategorize();
+    void runAuditReconciliation();
 };
 
 struct BatchConversionTask {

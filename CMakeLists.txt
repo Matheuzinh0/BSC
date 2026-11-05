@@ -59,11 +59,13 @@ set(CORE_SOURCES
     src/parsers/CsvParser.cpp
     src/parsers/XlsxParser.cpp
     src/parsers/QifParser.cpp
+    src/parsers/JsonParser.cpp
     src/encoders/OfxEncoder.cpp
     src/encoders/CsvEncoder.cpp
     src/encoders/XlsxEncoder.cpp
     src/encoders/QifEncoder.cpp
     src/encoders/PdfEncoder.cpp
+    src/encoders/JsonEncoder.cpp
     src/ocr/OcrEngine.cpp
     src/converter/ConverterEngine.cpp
 )
@@ -74,7 +76,23 @@ target_link_libraries(BSCCore PUBLIC miniz)
 # Find GUI dependencies
 find_package(OpenGL REQUIRED)
 
-set(GLFW_STATIC_LIB "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glfw/lib/libglfw3.a")
+# Robust GLFW discovery: system package, system library, or vendor static
+find_library(GLFW_SYSTEM_LIB NAMES glfw3 glfw libglfw.so.3 libglfw.so
+    PATHS
+    ${SYSROOT_DIR}/usr/lib/x86_64-linux-gnu
+    ${SYSROOT_DIR}/usr/lib
+    /usr/lib64
+    /usr/lib
+    /usr/local/lib
+)
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glfw/lib/libglfw3.a")
+    set(GLFW_TARGET_LIB "${CMAKE_CURRENT_SOURCE_DIR}/vendor/glfw/lib/libglfw3.a")
+elseif(GLFW_SYSTEM_LIB)
+    set(GLFW_TARGET_LIB "${GLFW_SYSTEM_LIB}")
+else()
+    set(GLFW_TARGET_LIB glfw)
+endif()
 
 # Executable: BSC (Main GUI & Headless Batch Application)
 add_executable(BSC
@@ -87,7 +105,7 @@ target_link_libraries(BSC PRIVATE
     BSCCore
     imgui
     OpenGL::GL
-    ${GLFW_STATIC_LIB}
+    ${GLFW_TARGET_LIB}
     X11
     pthread
     ${CMAKE_DL_LIBS}

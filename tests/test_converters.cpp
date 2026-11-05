@@ -11,6 +11,8 @@
 #include "core/Utils.hpp"
 #include "parsers/PdfParser.hpp"
 #include "parsers/CsvParser.hpp"
+#include "parsers/JsonParser.hpp"
+#include "encoders/JsonEncoder.hpp"
 #include "ocr/OcrEngine.hpp"
 #include "converter/ConverterEngine.hpp"
 #include <iostream>
@@ -273,6 +275,238 @@ void testMercadoLivreStatementParsing() {
     std::remove(tmpCsv.c_str());
 }
 
+void testJsonRoundtrip() {
+    std::cout << "\n--- TEST: JSON Universal Format Roundtrip ---\n";
+    ofx::converter::ConverterEngine engine;
+
+    ofx::core::Statement stmt;
+    stmt.account.bankId = "260";
+    stmt.account.bankName = "Nubank";
+    stmt.account.branchId = "0001";
+    stmt.account.accountId = "123456-7";
+    stmt.account.currency = "BRL";
+
+    ofx::core::Transaction tx1;
+    tx1.date = "2023-10-15";
+    tx1.amount = 1200.50;
+    tx1.description = "Pix Recebido Joao";
+    tx1.documentNumber = "PIX01";
+    stmt.transactions.push_back(tx1);
+
+    ofx::core::Transaction tx2;
+    tx2.date = "2023-10-16";
+    tx2.amount = -85.90;
+    tx2.description = "Uber Viagem Trabalho";
+    tx2.documentNumber = "UBR02";
+    stmt.transactions.push_back(tx2);
+
+    stmt.computeStatistics();
+
+    std::string jsonFile = "/tmp/test_stmt.json";
+    bool okEncode = engine.convertStatement(stmt, ofx::core::FileFormat::JSON, jsonFile);
+    ASSERT_TRUE(okEncode, "Encode Statement to JSON");
+    ASSERT_TRUE(std::filesystem::exists(jsonFile), "JSON file written");
+
+    auto parsed = engine.parseFile(jsonFile);
+    ASSERT_TRUE(parsed != nullptr, "Parse JSON file");
+    ASSERT_TRUE(parsed->transactions.size() == 2, "JSON contains 2 transactions");
+    ASSERT_TRUE(parsed->account.bankId == "260", "JSON bankId preserved");
+    ASSERT_TRUE(std::abs(parsed->totalCredits - 1200.50) < 0.001, "JSON total credits match");
+    ASSERT_TRUE(std::abs(parsed->totalDebits - 85.90) < 0.001, "JSON total debits match");
+    ASSERT_TRUE(parsed->transactions[0].category == "Pix Recebido", "Category preserved/assigned");
+    ASSERT_TRUE(parsed->transactions[1].category == "Transporte / Combustivel", "Category for Uber recognized");
+
+    std::remove(jsonFile.c_str());
+}
+
+void testMultiPagePdfGeneration() {
+    std::cout << "\n--- TEST: Multi-Page Vector PDF Generation ---\n";
+    ofx::converter::ConverterEngine engine;
+
+    ofx::core::Statement largeStmt;
+    largeStmt.account.bankId = "341";
+    largeStmt.account.bankName = "Itau Unibanco";
+    largeStmt.account.branchId = "0456";
+    largeStmt.account.accountId = "98765-4";
+    largeStmt.account.currency = "BRL";
+    largeStmt.periodStart = "2023-10-01";
+    largeStmt.periodEnd = "2023-10-31";
+
+    // Generate 85 transactions (spans 3 pages)
+    for (int i = 1; i <= 85; ++i) {
+        ofx::core::Transaction tx;
+        tx.date = (i < 10) ? ("2023-10-0" + std::to_string(i)) : ("2023-10-" + std::to_string(std::min(i, 28)));
+        tx.amount = (i % 2 == 0) ? (50.0 + i * 2) : -(20.0 + i);
+        tx.description = (i % 2 == 0) ? ("CREDITO OPERACAO #" + std::to_string(i)) : ("PAGAMENTO BOLETO #" + std::to_string(i));
+        tx.documentNumber = "DOC" + std::to_string(1000 + i);
+        largeStmt.transactions.push_back(tx);
+    }
+
+    largeStmt.computeStatistics();
+    ASSERT_TRUE(largeStmt.transactions.size() == 85, "Large statement contains 85 transactions");
+
+    std::string pdfPath = "/tmp/multipage_test.pdf";
+    bool okPdf = engine.convertStatement(largeStmt, ofx::core::FileFormat::PDF, pdfPath);
+    ASSERT_TRUE(okPdf, "Encode large statement to multi-page PDF");
+    ASSERT_TRUE(std::filesystem::exists(pdfPath), "PDF file created");
+
+    // Verify PDF content contains multiple pages
+    std::string pdfContent = ofx::core::Utils::readFileString(pdfPath);
+    ASSERT_TRUE(pdfContent.find("/Count 3") != std::string::npos, "PDF catalog has /Count 3 pages");
+    ASSERT_TRUE(pdfContent.find("Pagina 2 de 3") != std::string::npos, "Continuation page 2 running header present");
+    ASSERT_TRUE(pdfContent.find("Pagina 3 de 3") != std::string::npos, "Continuation page 3 running header present");
+    ASSERT_TRUE(pdfContent.find("INTEGRIDADE CRIPTOGRAFICA SHA-256") != std::string::npos, "Audit badge present on final page");
+
+    // Parse back all 85 transactions
+    auto parsedPdf = engine.parseFile(pdfPath);
+    ASSERT_TRUE(parsedPdf != nullptr, "Parse multi-page PDF");
+    ASSERT_TRUE(parsedPdf->transactions.size() == 85, "All 85 transactions parsed back across all pages");
+
+    std::remove(pdfPath.c_str());
+}
+
+void testAuditAndReconciliationEngine() {
+    std::cout << "\n--- TEST: Audit & Mathematical Reconciliation Engine ---\n";
+
+    // Test Case 1: Exact reconciliation (Verified)
+    ofx::core::Statement stmt1;
+    stmt1.hasInitialBalance = true;
+    stmt1.initialBalance = 1000.00;
+    stmt1.hasFinalBalance = true;
+    stmt1.finalBalance = 1350.00;
+
+    ofx::core::Transaction t1;
+    t1.date = "2023-10-01";
+    t1.amount = 500.00;
+    stmt1.transactions.push_back(t1);
+
+    ofx::core::Transaction t2;
+    t2.date = "2023-10-02";
+    t2.amount = -150.00;
+    stmt1.transactions.push_back(t2);
+
+    stmt1.computeStatistics();
+    ASSERT_TRUE(stmt1.auditStatus == ofx::core::AuditStatus::VERIFIED, "Exact parity verified (1000 + 500 - 150 = 1350)");
+    ASSERT_TRUE(std::abs(stmt1.auditDiscrepancy) < 0.001, "Zero discrepancy");
+    ASSERT_TRUE(stmt1.auditWarnings.empty(), "Zero audit warnings");
+
+    // Test Case 2: Discrepancy detection
+    ofx::core::Statement stmt2;
+    stmt2.hasInitialBalance = true;
+    stmt2.initialBalance = 1000.00;
+    stmt2.hasFinalBalance = true;
+    stmt2.finalBalance = 1500.00; // Declared 1500, but expected is 1350 (diff of 150)
+    stmt2.transactions.push_back(t1);
+    stmt2.transactions.push_back(t2);
+
+    stmt2.computeStatistics();
+    ASSERT_TRUE(stmt2.auditStatus == ofx::core::AuditStatus::DISCREPANCY, "Discrepancy correctly detected");
+    ASSERT_TRUE(std::abs(stmt2.auditDiscrepancy - 150.00) < 0.001, "Discrepancy amount is 150.00");
+    ASSERT_TRUE(!stmt2.auditWarnings.empty(), "Audit warning generated");
+
+    // Test Case 3: Duplicate transaction detection
+    ofx::core::Statement stmt3;
+    stmt3.transactions.push_back(t1);
+    stmt3.transactions.push_back(t1); // Exact duplicate
+    stmt3.computeStatistics();
+    ASSERT_TRUE(!stmt3.auditWarnings.empty(), "Duplicate transaction flagged in audit warnings");
+}
+
+void testCategorizationAndPixParsing() {
+    std::cout << "\n--- TEST: Intelligent Categorization & Pix Parsing ---\n";
+    ofx::core::Statement stmt;
+
+    ofx::core::Transaction t1;
+    t1.date = "2023-10-10";
+    t1.amount = 4500.00;
+    t1.description = "SALARIO MENSAL FOLHA DE PAGAMENTO";
+    stmt.transactions.push_back(t1);
+
+    ofx::core::Transaction t2;
+    t2.date = "2023-10-11";
+    t2.amount = -45.90;
+    t2.description = "IFOOD RESTAURANTE SABOR";
+    stmt.transactions.push_back(t2);
+
+    ofx::core::Transaction t3;
+    t3.date = "2023-10-12";
+    t3.amount = -180.50;
+    t3.description = "CPFL ENERGIA CONTA LUZ";
+    stmt.transactions.push_back(t3);
+
+    ofx::core::Transaction t4;
+    t4.date = "2023-10-13";
+    t4.amount = -12.50;
+    t4.description = "TARIFA PACOTE MENSAL DE SERVICOS";
+    stmt.transactions.push_back(t4);
+
+    ofx::core::Transaction t5;
+    t5.date = "2023-10-14";
+    t5.amount = -250.00;
+    t5.description = "Pix Enviado para chave 123.456.789-00 E12345678901234567890123456789012";
+    stmt.transactions.push_back(t5);
+
+    stmt.computeStatistics();
+
+    ASSERT_TRUE(stmt.transactions[0].category == "Salario / Proventos", "Salario categorized");
+    ASSERT_TRUE(stmt.transactions[1].category == "Alimentacao / Mercado", "iFood categorized");
+    ASSERT_TRUE(stmt.transactions[2].category == "Utilidades / Contas", "CPFL Energia categorized");
+    ASSERT_TRUE(stmt.transactions[3].category == "Tarifas / Bancarios", "Tarifa categorized");
+    ASSERT_TRUE(stmt.transactions[4].category == "Pix Enviado", "Pix categorized");
+    ASSERT_TRUE(stmt.transactions[4].pixKey == "123.456.789-00", "Pix key extracted");
+    ASSERT_TRUE(stmt.transactions[4].pixE2eId == "E12345678901234567890123456789012", "Pix E2E ID extracted");
+}
+
+void testCsvWithMetadataPreHeaders() {
+    std::cout << "\n--- TEST: CSV with Pre-Header Metadata Rows ---\n";
+    std::string csvWithHeaderInfo =
+        "BANCO DO BRASIL S.A. - EXTRATO DE CONTA CORRENTE\n"
+        "Agencia: 1234-5  Conta: 98765-4\n"
+        "Periodo: 01/10/2023 a 31/10/2023\n"
+        "Saldo Anterior: 1.500,00\n"
+        "\n"
+        "Data;Historico;Documento;Valor;Saldo\n"
+        "05/10/2023;PIX TRANSF JOAO;DOC101;-150,00;1.350,00\n"
+        "10/10/2023;DEPOSITO DINHEIRO;DOC102;800,00;2.150,00\n";
+
+    std::string tmp = "/tmp/test_preheaders.csv";
+    ofx::core::Utils::writeFileString(tmp, csvWithHeaderInfo);
+
+    ofx::parsers::CsvParser parser;
+    auto stmt = parser.parse(tmp);
+    ASSERT_TRUE(stmt != nullptr, "Parsed CSV with metadata rows");
+    ASSERT_TRUE(stmt->transactions.size() == 2, "Found both transactions despite 5 header lines");
+    ASSERT_TRUE(stmt->hasInitialBalance, "Parsed initial balance from pre-header");
+    ASSERT_TRUE(std::abs(stmt->initialBalance - 1500.00) < 0.001, "Initial balance is 1500.00");
+    ASSERT_TRUE(std::abs(stmt->transactions[0].amount - (-150.00)) < 0.001, "First tx amount -150.00");
+    ASSERT_TRUE(std::abs(stmt->transactions[1].amount - 800.00) < 0.001, "Second tx amount +800.00");
+
+    std::remove(tmp.c_str());
+}
+
+void testPdfUtf16BeHexDecoding() {
+    std::cout << "\n--- TEST: PDF UTF-16BE Hex Decoding ---\n";
+    ofx::parsers::PdfParser parser;
+
+    // Simulate PDF stream containing UTF-16BE hex string <00420041004E0043004F> (BANCO)
+    // and transactions encoded with hex characters
+    std::string hexPdf = 
+        "%PDF-1.4\n"
+        "1 0 obj << /Length 200 >> stream\n"
+        "BT\n"
+        "/F1 12 Tf\n"
+        "<00420041004E0043004F00200044004F002000420052004100530049004C> Tj T*\n"
+        "<00300035002F00310030002F003200300032003300200050004900580020005400520041004E005300460020002D003100350030002C00300030> Tj\n"
+        "ET\n"
+        "endstream\n"
+        "endobj\n";
+
+    std::vector<uint8_t> bytes(hexPdf.begin(), hexPdf.end());
+    std::string extracted = parser.extractRawTextFromPdf(bytes);
+    ASSERT_TRUE(extracted.find("BANCO DO BRASIL") != std::string::npos, "UTF-16BE 'BANCO DO BRASIL' decoded");
+    ASSERT_TRUE(extracted.find("05/10/2023") != std::string::npos, "UTF-16BE date decoded");
+}
+
 void testIntegratedOcrEngine() {
     std::cout << "\n--- TEST: Integrated Native C++ OCR Engine ---\n";
     auto& ocr = ofx::ocr::OcrEngine::instance();
@@ -300,6 +534,12 @@ int main() {
     testSha256();
     testAmountAndDateParsing();
     testUniversalFormatRoundtrip();
+    testJsonRoundtrip();
+    testMultiPagePdfGeneration();
+    testAuditAndReconciliationEngine();
+    testCategorizationAndPixParsing();
+    testCsvWithMetadataPreHeaders();
+    testPdfUtf16BeHexDecoding();
     testLayoutAgnosticPdfParsing();
     testMercadoLivreStatementParsing();
     testIntegratedOcrEngine();

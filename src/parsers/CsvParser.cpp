@@ -116,44 +116,87 @@ std::shared_ptr<core::Statement> CsvParser::parse(const std::string& filePath) c
     int typeCol = -1;
 
     size_t startRow = 0;
+    bool headerFound = false;
 
-    // Inspect first row for column headers
-    const auto& headers = rows[0];
-    for (size_t col = 0; col < headers.size(); ++col) {
-        std::string h = core::Utils::toUpper(headers[col]);
-        if (h.find("DATA") != std::string::npos || h.find("DATE") != std::string::npos || h == "DT") {
-            dateCol = static_cast<int>(col);
-        } else if (h.find("HISTORICO") != std::string::npos || h.find("HISTÓRICO") != std::string::npos ||
-                   h.find("DESCRICAO") != std::string::npos || h.find("DESCRIÇÃO") != std::string::npos ||
-                   h.find("MEMO") != std::string::npos || h.find("DESCRIPTION") != std::string::npos) {
-            descCol = static_cast<int>(col);
-        } else if (h.find("DOCUMENTO") != std::string::npos || h.find("DOC") != std::string::npos ||
-                   h.find("FITID") != std::string::npos || h.find("CHECKNUM") != std::string::npos ||
-                   h.find("OPERACAO") != std::string::npos || h.find("OPERAÇÃO") != std::string::npos ||
-                   h.find("IDENTIFICADOR") != std::string::npos) {
-            docCol = static_cast<int>(col);
-        } else if (h.find("DEBITO") != std::string::npos || h.find("DÉBITO") != std::string::npos ||
-                   h.find("SAIDA") != std::string::npos || h.find("SAÍDA") != std::string::npos ||
-                   h.find("TARIFA") != std::string::npos) {
-            debitCol = static_cast<int>(col);
-        } else if (h.find("CREDITO") != std::string::npos || h.find("CRÉDITO") != std::string::npos ||
-                   h.find("ENTRADA") != std::string::npos) {
-            creditCol = static_cast<int>(col);
-        } else if (h.find("VALOR") != std::string::npos || h.find("AMOUNT") != std::string::npos ||
-                   h.find("LANCAMENTO") != std::string::npos || h.find("LANÇAMENTO") != std::string::npos ||
-                   h.find("LÍQUIDO") != std::string::npos || h.find("LIQUIDO") != std::string::npos) {
-            amountCol = static_cast<int>(col);
-        } else if (h.find("SALDO") != std::string::npos || h.find("BALANCE") != std::string::npos) {
-            balanceCol = static_cast<int>(col);
-        } else if (h.find("TIPO") != std::string::npos || h == "D/C" || h == "C/D") {
-            typeCol = static_cast<int>(col);
+    // Scan up to 25 rows for table headers, extracting any metadata along the way
+    size_t maxHeaderScan = std::min(rows.size(), size_t(25));
+    for (size_t r = 0; r < maxHeaderScan; ++r) {
+        const auto& candidateRow = rows[r];
+
+        // Check if row has metadata (e.g. Banco, Agência, Conta, Saldo)
+        for (const auto& cell : candidateRow) {
+            std::string upCell = core::Utils::toUpper(cell);
+            if (upCell.find("BANCO:") != std::string::npos || upCell.find("BANCO DO BRASIL") != std::string::npos ||
+                upCell.find("ITAU") != std::string::npos || upCell.find("BRADESCO") != std::string::npos ||
+                upCell.find("SANTANDER") != std::string::npos || upCell.find("NUBANK") != std::string::npos) {
+                if (statement->account.bankName.empty()) statement->account.bankName = cell;
+            }
+            if (upCell.find("AGENCIA:") != std::string::npos || upCell.find("AGÊNCIA:") != std::string::npos) {
+                statement->account.branchId = cell;
+            }
+            if (upCell.find("CONTA:") != std::string::npos || upCell.find("CONTA CORRENTE:") != std::string::npos) {
+                statement->account.accountId = cell;
+            }
+            if (upCell.find("SALDO ANTERIOR:") != std::string::npos || upCell.find("SALDO INICIAL:") != std::string::npos) {
+                statement->initialBalance = core::Utils::parseAmount(cell);
+                statement->hasInitialBalance = true;
+            }
+        }
+
+        // Test if candidateRow represents column headers
+        int dCol = -1, sCol = -1, aCol = -1, debCol = -1, credCol = -1, balCol = -1, tCol = -1, dcCol = -1;
+
+        for (size_t col = 0; col < candidateRow.size(); ++col) {
+            std::string h = core::Utils::toUpper(candidateRow[col]);
+            if (h.find("DATA") != std::string::npos || h.find("DATE") != std::string::npos || h == "DT") {
+                dCol = static_cast<int>(col);
+            } else if (h.find("HISTORICO") != std::string::npos || h.find("HISTÓRICO") != std::string::npos ||
+                       h.find("DESCRICAO") != std::string::npos || h.find("DESCRIÇÃO") != std::string::npos ||
+                       h.find("MEMO") != std::string::npos || h.find("DESCRIPTION") != std::string::npos ||
+                       h.find("DETALHE") != std::string::npos) {
+                sCol = static_cast<int>(col);
+            } else if (h.find("DOCUMENTO") != std::string::npos || h.find("DOC") != std::string::npos ||
+                       h.find("FITID") != std::string::npos || h.find("CHECKNUM") != std::string::npos ||
+                       h.find("OPERACAO") != std::string::npos || h.find("OPERAÇÃO") != std::string::npos ||
+                       h.find("IDENTIFICADOR") != std::string::npos) {
+                dcCol = static_cast<int>(col);
+            } else if (h.find("DEBITO") != std::string::npos || h.find("DÉBITO") != std::string::npos ||
+                       h.find("SAIDA") != std::string::npos || h.find("SAÍDA") != std::string::npos ||
+                       h.find("TARIFA") != std::string::npos) {
+                debCol = static_cast<int>(col);
+            } else if (h.find("CREDITO") != std::string::npos || h.find("CRÉDITO") != std::string::npos ||
+                       h.find("ENTRADA") != std::string::npos) {
+                credCol = static_cast<int>(col);
+            } else if (h.find("VALOR") != std::string::npos || h.find("AMOUNT") != std::string::npos ||
+                       h.find("LANCAMENTO") != std::string::npos || h.find("LANÇAMENTO") != std::string::npos ||
+                       h.find("LÍQUIDO") != std::string::npos || h.find("LIQUIDO") != std::string::npos) {
+                aCol = static_cast<int>(col);
+            } else if (h.find("SALDO") != std::string::npos || h.find("BALANCE") != std::string::npos) {
+                balCol = static_cast<int>(col);
+            } else if (h.find("TIPO") != std::string::npos || h == "D/C" || h == "C/D") {
+                tCol = static_cast<int>(col);
+            }
+        }
+
+        // A valid header row must at least define a date column and an amount/debit/credit/description column
+        if (dCol != -1 && (aCol != -1 || debCol != -1 || credCol != -1 || sCol != -1)) {
+            dateCol = dCol;
+            descCol = sCol;
+            amountCol = aCol;
+            debitCol = debCol;
+            creditCol = credCol;
+            balanceCol = balCol;
+            docCol = dcCol;
+            typeCol = tCol;
+            startRow = r + 1;
+            headerFound = true;
+            break;
         }
     }
 
-    if (dateCol != -1 || descCol != -1 || amountCol != -1) {
-        startRow = 1; // Header found
-    } else {
+    if (!headerFound) {
         // Fallback heuristic: 0 = Date, 1 = Desc, 2 = Doc, 3 = Amount
+        const auto& headers = rows[0];
         dateCol = 0;
         descCol = 1;
         if (headers.size() >= 4) {
