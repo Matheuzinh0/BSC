@@ -157,54 +157,50 @@ void UIController::startBatchConversion() {
 void UIController::renderHeader() {
     AppFonts& fonts = getAppFonts();
 
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 4.0f));
+    if (ImGui::BeginTable("HeaderLayoutTable", 2, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("TitleCol", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("ActionCol", ImGuiTableColumnFlags_WidthFixed, 310.0f);
+        ImGui::TableNextRow();
 
-    // Brand Pill [ BSC ]
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.72f, 0.51f, 0.25f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.06f, 0.72f, 0.51f, 0.35f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.06f, 0.72f, 0.51f, 0.45f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.15f, 0.95f, 0.65f, 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-    if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
-    ImGui::Button("BSC", ImVec2(54, 28));
-    if (fonts.fontBold) ImGui::PopFont();
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(4);
-
-    ImGui::SameLine();
-    if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
-    ImGui::TextColored(ImVec4(0.96f, 0.97f, 0.99f, 1.0f), "Bank Statement Conversion");
-    if (fonts.fontBold) ImGui::PopFont();
-
-    ImGui::SameLine();
-    ImGui::TextDisabled("v2.5");
-
-    // Right-aligned status indicators
-    float rightOffset = ImGui::GetWindowWidth() - 530.0f;
-    if (rightOffset > 380.0f) {
-        ImGui::SameLine(rightOffset);
-
-        // Offline / Air-Gapped Pill
-        ImGui::TextColored(ImVec4(0.10f, 0.80f, 0.55f, 1.0f), "● 100%% Local");
+        // Left Column: Brand & Title
+        ImGui::TableSetColumnIndex(0);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.72f, 0.51f, 0.25f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.06f, 0.72f, 0.51f, 0.35f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.06f, 0.72f, 0.51f, 0.45f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.15f, 0.95f, 0.65f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
+        ImGui::Button("BSC", ImVec2(54, 28));
+        if (fonts.fontBold) ImGui::PopFont();
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(4);
 
         ImGui::SameLine();
-        std::string poolStr = "● " + std::to_string(m_engine.getWorkerCount()) + " Threads";
+        if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
+        ImGui::TextColored(ImVec4(0.96f, 0.97f, 0.99f, 1.0f), "Bank Statement Conversion");
+        if (fonts.fontBold) ImGui::PopFont();
+
+        ImGui::SameLine();
+        ImGui::TextDisabled("v2.5");
+
+        if (fonts.fontSmall) ImGui::PushFont(fonts.fontSmall);
+        ImGui::TextDisabled("Sistema Universal de Conversao e Auditoria para Todos os Bancos e Fintechs");
+        if (fonts.fontSmall) ImGui::PopFont();
+
+        // Right Column: System info & About button
+        ImGui::TableSetColumnIndex(1);
+        std::string poolStr = "[" + std::to_string(m_engine.getWorkerCount()) + " Threads]";
         ImGui::TextColored(ImVec4(0.20f, 0.75f, 0.95f, 1.0f), "%s", poolStr.c_str());
-
         ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.70f, 0.50f, 0.95f, 1.0f), "● C++20 Nativo");
-
+        ImGui::TextColored(ImVec4(0.70f, 0.50f, 0.95f, 1.0f), "[C++20]");
         ImGui::SameLine();
-        if (ImGui::SmallButton("? Sobre & Créditos")) {
+        if (ImGui::Button("Sobre / Licenca", ImVec2(130, 26))) {
             m_showAboutModal = true;
         }
+
+        ImGui::EndTable();
     }
 
-    if (fonts.fontSmall) ImGui::PushFont(fonts.fontSmall);
-    ImGui::TextDisabled("Sistema Universal de Conversao Any-to-Any, OCR Nativo e Auditoria Contabil Automatizada");
-    if (fonts.fontSmall) ImGui::PopFont();
-
-    ImGui::PopStyleVar();
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
@@ -212,7 +208,7 @@ void UIController::renderHeader() {
 
 void UIController::renderTargetOptionsPanel() {
     AppFonts& fonts = getAppFonts();
-    ImGui::BeginChild("TargetOptionsPanel", ImVec2(0, 138), true);
+    ImGui::BeginChild("TargetOptionsPanel", ImVec2(0, 142), true);
 
     if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
     ImGui::TextColored(ImVec4(0.20f, 0.75f, 0.95f, 1.0f), "FORMATOS DE SAIDA SIMULTANEOS (QUALQUER PARA QUALQUER)");
@@ -223,25 +219,33 @@ void UIController::renderTargetOptionsPanel() {
 
     ImGui::Spacing();
 
-    // Row 1: Primary Formats
-    ImGui::Checkbox("OFX (QuickBooks / ContaAzul / ERP)", &m_targetOfx);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Padrao Open Financial Exchange suportado pela maioria dos ERPs e contabilidades (ContaAzul, Omie, QuickBooks).");
-    ImGui::SameLine(340);
-    ImGui::Checkbox("CSV (RFC-4180 / Delimitador ';')", &m_targetCsv);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Planilha em texto puro com pontuacao brasileira, compativel com Excel, Google Planilhas e Python Pandas.");
-    ImGui::SameLine(680);
-    ImGui::Checkbox("XLSX (Microsoft Excel com Cores e Formulas)", &m_targetXlsx);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Planilha nativa Excel Office Open XML com formatacao visual (verde/vermelho), formulas de totalizacao e filtros.");
+    // 3-Column responsive table guarantees NO overlap on any screen resolution
+    if (ImGui::BeginTable("FormatGridTable", 3, ImGuiTableFlags_SizingStretchSame)) {
+        ImGui::TableNextRow();
 
-    // Row 2: Complementary Formats
-    ImGui::Checkbox("PDF (Relatorio Vetorial Multipaginas)", &m_targetPdf);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Documento PDF executivo impresso em alta fidelidade vetorial com paginacao continua, cabecalho e selo SHA-256.");
-    ImGui::SameLine(340);
-    ImGui::Checkbox("JSON (Open Finance / REST APIs / Python)", &m_targetJson);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Estrutura hierarquica em JSON no padrao Open Finance, pronta para microservicos, ETL e webhooks.");
-    ImGui::SameLine(680);
-    ImGui::Checkbox("QIF (Quicken Interchange / GnuCash)", &m_targetQif);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Formato financeiro universal Quicken Interchange Format, ideal para GnuCash e sistemas legados.");
+        // Column 0: OFX & PDF
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Checkbox("OFX (QuickBooks / ContaAzul)", &m_targetOfx);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Padrao Open Financial Exchange suportado por ERPs e contabilidades.");
+        ImGui::Checkbox("PDF (Relatorio Vetorial)", &m_targetPdf);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Documento PDF executivo impresso em alta fidelidade vetorial.");
+
+        // Column 1: CSV & JSON
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Checkbox("CSV (RFC-4180 / Delimitador ';')", &m_targetCsv);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Planilha em texto puro com pontuacao brasileira para Excel e Python.");
+        ImGui::Checkbox("JSON (Open Finance / REST APIs)", &m_targetJson);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Estrutura hierarquica em JSON no padrao Open Finance.");
+
+        // Column 2: XLSX & QIF
+        ImGui::TableSetColumnIndex(2);
+        ImGui::Checkbox("XLSX (Microsoft Excel)", &m_targetXlsx);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Planilha nativa Excel Office Open XML com cores e formulas.");
+        ImGui::Checkbox("QIF (Quicken / GnuCash)", &m_targetQif);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Formato financeiro universal Quicken Interchange Format.");
+
+        ImGui::EndTable();
+    }
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -250,11 +254,12 @@ void UIController::renderTargetOptionsPanel() {
     // Output Directory Bar
     ImGui::Text("Pasta de Destino:");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 300.0f);
+    float availW = ImGui::GetContentRegionAvail().x;
+    ImGui::SetNextItemWidth(std::max(180.0f, availW - 270.0f));
     ImGui::InputTextWithHint("##outdir", "Mesma pasta do arquivo de origem (padrao)", m_outputDirBuf, sizeof(m_outputDirBuf));
     
     ImGui::SameLine();
-    if (ImGui::Button("Selecionar Pasta...##out", ImVec2(170, 26))) {
+    if (ImGui::Button("Selecionar...##out", ImVec2(140, 26))) {
         m_isSelectingOutputDir = true;
         std::string cur = m_outputDirBuf[0] ? m_outputDirBuf : std::filesystem::current_path().string();
         snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", cur.c_str());
@@ -262,7 +267,7 @@ void UIController::renderTargetOptionsPanel() {
     }
 
     ImGui::SameLine();
-    if (ImGui::Button("Limpar##clearOut", ImVec2(90, 26))) {
+    if (ImGui::Button("Padrao##clearOut", ImVec2(90, 26))) {
         m_outputDirBuf[0] = '\0';
     }
 
@@ -271,66 +276,73 @@ void UIController::renderTargetOptionsPanel() {
 
 void UIController::renderBatchQueuePanel() {
     AppFonts& fonts = getAppFonts();
-    float availHeight = ImGui::GetContentRegionAvail().y - 125.0f;
+    float availHeight = ImGui::GetContentRegionAvail().y - 88.0f;
     ImGui::BeginChild("BatchQueuePanel", ImVec2(0, availHeight), true);
 
-    // Top action bar
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.44f, 0.72f, 0.95f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.10f, 0.54f, 0.88f, 1.0f));
-    if (ImGui::Button("+ Adicionar Pasta com Extratos...", ImVec2(270, 34))) {
-        m_isSelectingOutputDir = false;
-        std::string cur = std::filesystem::current_path().string();
-        snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", cur.c_str());
-        m_showDirPickerModal = true;
-    }
-    ImGui::PopStyleColor(2);
+    // Responsive Top Action Bar using a 2-column table
+    if (ImGui::BeginTable("QueueTopBarTable", 2, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("ButtonsCol", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("QueueInfoCol", ImGuiTableColumnFlags_WidthFixed, 260.0f);
+        ImGui::TableNextRow();
 
-    ImGui::SameLine();
-    if (ImGui::Button("Carregar Amostras (samples/)", ImVec2(210, 34))) {
-        if (std::filesystem::exists("samples")) {
-            addDirectory("samples");
-        }
-    }
-
-    ImGui::SameLine();
-    if (ImGui::Button("Limpar Fila", ImVec2(110, 34))) {
-        std::lock_guard<std::mutex> lock(m_taskMutex);
-        m_tasks.clear();
-    }
-
-    ImGui::SameLine();
-
-    // Main Run Action Button
-    if (m_isConverting) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.20f, 0.20f, 0.90f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.95f, 0.25f, 0.25f, 1.00f));
-        if (ImGui::Button("PARAR CONVERSAO", ImVec2(220, 34))) {
-            m_engine.cancelAll();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.44f, 0.72f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.10f, 0.54f, 0.88f, 1.0f));
+        if (ImGui::Button("+ Adicionar Pasta...", ImVec2(180, 32))) {
+            m_isSelectingOutputDir = false;
+            std::string cur = std::filesystem::current_path().string();
+            snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", cur.c_str());
+            m_showDirPickerModal = true;
         }
         ImGui::PopStyleColor(2);
-    } else {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.65f, 0.45f, 0.95f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.08f, 0.75f, 0.52f, 1.00f));
-        if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
-        if (ImGui::Button("INICIAR CONVERSAO EM LOTE", ImVec2(270, 34))) {
-            startBatchConversion();
-        }
-        if (fonts.fontBold) ImGui::PopFont();
-        ImGui::PopStyleColor(2);
-    }
 
-    // Queue count chip
-    ImGui::SameLine(ImGui::GetWindowWidth() - 310);
-    size_t totalTxInQueue = 0;
-    {
-        std::lock_guard<std::mutex> lock(m_taskMutex);
-        for (const auto& t : m_tasks) {
-            if (t.parsedStatement) totalTxInQueue += t.parsedStatement->transactions.size();
+        ImGui::SameLine();
+        if (ImGui::Button("Carregar Amostras (samples/)", ImVec2(200, 32))) {
+            if (std::filesystem::exists("samples")) {
+                addDirectory("samples");
+            }
         }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Limpar Fila", ImVec2(100, 32))) {
+            std::lock_guard<std::mutex> lock(m_taskMutex);
+            m_tasks.clear();
+        }
+
+        ImGui::SameLine();
+        if (m_isConverting) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.20f, 0.20f, 0.90f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.95f, 0.25f, 0.25f, 1.00f));
+            if (ImGui::Button("PARAR CONVERSAO", ImVec2(180, 32))) {
+                m_engine.cancelAll();
+            }
+            ImGui::PopStyleColor(2);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.65f, 0.45f, 0.95f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.08f, 0.75f, 0.52f, 1.00f));
+            if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
+            if (ImGui::Button("INICIAR CONVERSAO EM LOTE", ImVec2(230, 32))) {
+                startBatchConversion();
+            }
+            if (fonts.fontBold) ImGui::PopFont();
+            ImGui::PopStyleColor(2);
+        }
+
+        // Column 1: Queue status chip
+        ImGui::TableSetColumnIndex(1);
+        size_t totalTxInQueue = 0;
+        {
+            std::lock_guard<std::mutex> lock(m_taskMutex);
+            for (const auto& t : m_tasks) {
+                if (t.parsedStatement) totalTxInQueue += t.parsedStatement->transactions.size();
+            }
+        }
+        std::string countStr = "Fila: " + std::to_string(m_tasks.size()) + " arqs | " + 
+                               std::to_string(totalTxInQueue) + " lancamentos";
+        ImGui::TextColored(ImVec4(0.85f, 0.90f, 0.95f, 1.0f), "%s", countStr.c_str());
+
+        ImGui::EndTable();
     }
-    std::string countStr = "Fila: " + std::to_string(m_tasks.size()) + " arquivos | " + 
-                           std::to_string(totalTxInQueue) + " lancamentos";
-    ImGui::TextColored(ImVec4(0.85f, 0.90f, 0.95f, 1.0f), "%s", countStr.c_str());
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -342,9 +354,8 @@ void UIController::renderBatchQueuePanel() {
 
         ImGui::Spacing();
         ImGui::Spacing();
-        ImGui::Spacing();
 
-        float centerPos = (ImGui::GetWindowWidth() - 500.0f) * 0.5f;
+        float centerPos = (ImGui::GetWindowWidth() - 560.0f) * 0.5f;
         if (centerPos < 20.0f) centerPos = 20.0f;
 
         ImGui::SetCursorPosX(centerPos);
@@ -359,7 +370,7 @@ void UIController::renderBatchQueuePanel() {
         ImGui::SetCursorPosX(centerPos);
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.08f, 0.44f, 0.72f, 0.95f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.10f, 0.54f, 0.88f, 1.0f));
-        if (ImGui::Button("+ Selecionar Pasta no Computador...##dz", ImVec2(280, 36))) {
+        if (ImGui::Button("+ Selecionar Pasta no Computador...##dz", ImVec2(270, 36))) {
             m_isSelectingOutputDir = false;
             std::string cur = std::filesystem::current_path().string();
             snprintf(m_dirPickerCurrentPath, sizeof(m_dirPickerCurrentPath), "%s", cur.c_str());
@@ -368,7 +379,7 @@ void UIController::renderBatchQueuePanel() {
         ImGui::PopStyleColor(2);
 
         ImGui::SameLine();
-        if (ImGui::Button("Carregar Amostras Prontas (samples/)##dz", ImVec2(280, 36))) {
+        if (ImGui::Button("Carregar Amostras Prontas (samples/)##dz", ImVec2(270, 36))) {
             if (std::filesystem::exists("samples")) {
                 addDirectory("samples");
             }
@@ -395,20 +406,16 @@ void UIController::renderBatchQueuePanel() {
 
         ImGui::SetCursorPosX(centerPos);
         if (fonts.fontBold) ImGui::PushFont(fonts.fontBold);
-        ImGui::TextColored(ImVec4(0.95f, 0.96f, 0.98f, 1.0f), "Bancos & Fintechs Homologados:");
+        ImGui::TextColored(ImVec4(0.95f, 0.96f, 0.98f, 1.0f), "Bancos e Fintechs Homologados:");
         if (fonts.fontBold) ImGui::PopFont();
 
         ImGui::SetCursorPosX(centerPos);
         ImGui::TextColored(ImVec4(0.70f, 0.80f, 0.90f, 1.0f), 
-            "Banco do Brasil, Itau, Bradesco, Santander, Caixa Economica Federal,\n"
-            "Nubank, Banco Inter, Sicoob, Sicredi, BTG Pactual, Mercado Pago / Mercado Livre.");
-
-        ImGui::Spacing();
-        ImGui::Spacing();
-
-        ImGui::SetCursorPosX(centerPos);
-        ImGui::TextColored(ImVec4(0.10f, 0.80f, 0.55f, 1.0f), 
-            "[Operacao 100%% Local]: Seus dados financeiros jamais saem desta maquina.");
+            "Bancos: Banco do Brasil, Itau, Bradesco, Santander, Caixa, Safra, Banrisul, BRB, BNB, BASA, BV\n"
+            "Cooperativas: Sicoob, Sicredi, Unicred, Ailos (Viacredi), Cresol\n"
+            "Digitais: Nubank, Banco Inter, C6 Bank, BTG Pactual, Original, Daycoval, Pan, BMG, Agibank\n"
+            "Pagamentos: Mercado Pago, PagBank, PicPay, Stone, Asaas, Cora, Efi, Woovi, Celcoin, RecargaPay\n"
+            "Investimentos: XP Investimentos, Genial, Modalmais, Avenue, Nomad, Wise");
 
         ImGui::EndChild();
     } else {
@@ -531,46 +538,49 @@ void UIController::renderBatchQueuePanel() {
 
 void UIController::renderTelemetryDashboard() {
     AppFonts& fonts = getAppFonts();
-    ImGui::BeginChild("TelemetryDashboard", ImVec2(0, 0), true);
+    ImGui::BeginChild("TelemetryDashboard", ImVec2(0, 78.0f), true);
 
-    ImGui::Columns(4, "telecomColumns", false);
+    if (ImGui::BeginTable("TelemetryGridTable", 4, ImGuiTableFlags_SizingStretchSame)) {
+        ImGui::TableNextRow();
 
-    // Card 1: Vazão de Transações
-    ImGui::TextDisabled("TAXA DE VAZAO (THROUGHPUT)");
-    if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
-    std::string txRate = std::to_string(static_cast<int>(m_currentMetrics.averageTransactionsPerSec)) + " Tx/s";
-    ImGui::TextColored(ImVec4(0.10f, 0.80f, 0.55f, 1.0f), "%s", txRate.c_str());
-    if (fonts.fontHeader) ImGui::PopFont();
-    ImGui::NextColumn();
+        // Card 1: Vazão de Transações
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextDisabled("TAXA DE VAZAO (THROUGHPUT)");
+        if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
+        std::string txRate = std::to_string(static_cast<int>(m_currentMetrics.averageTransactionsPerSec)) + " Tx/s";
+        ImGui::TextColored(ImVec4(0.10f, 0.80f, 0.55f, 1.0f), "%s", txRate.c_str());
+        if (fonts.fontHeader) ImGui::PopFont();
 
-    // Card 2: Volume de Dados
-    ImGui::TextDisabled("VOLUME E TEMPO DE EXECUCAO");
-    if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
-    double mbProcessed = m_currentMetrics.totalBytesProcessed / (1024.0 * 1024.0);
-    std::string dataStr = core::Utils::formatCurrency(mbProcessed, false) + " MB (" +
-                          std::to_string(static_cast<int>(m_currentMetrics.totalDurationMs)) + " ms)";
-    ImGui::TextColored(ImVec4(0.20f, 0.75f, 0.95f, 1.0f), "%s", dataStr.c_str());
-    if (fonts.fontHeader) ImGui::PopFont();
-    ImGui::NextColumn();
+        // Card 2: Volume de Dados
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextDisabled("VOLUME E TEMPO DE EXECUCAO");
+        if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
+        double mbProcessed = m_currentMetrics.totalBytesProcessed / (1024.0 * 1024.0);
+        std::string dataStr = core::Utils::formatCurrency(mbProcessed, false) + " MB (" +
+                              std::to_string(static_cast<int>(m_currentMetrics.totalDurationMs)) + " ms)";
+        ImGui::TextColored(ImVec4(0.20f, 0.75f, 0.95f, 1.0f), "%s", dataStr.c_str());
+        if (fonts.fontHeader) ImGui::PopFont();
 
-    // Card 3: Total Transações
-    ImGui::TextDisabled("REGISTROS PROCESSADOS");
-    if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
-    std::string totTx = std::to_string(m_currentMetrics.totalTransactions) + " itens (" +
-                        std::to_string(m_currentMetrics.successfulFiles) + "/" +
-                        std::to_string(m_currentMetrics.totalFiles) + " arqs)";
-    ImGui::TextColored(ImVec4(0.96f, 0.97f, 0.99f, 1.0f), "%s", totTx.c_str());
-    if (fonts.fontHeader) ImGui::PopFont();
-    ImGui::NextColumn();
+        // Card 3: Total Transações
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextDisabled("REGISTROS PROCESSADOS");
+        if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
+        std::string totTx = std::to_string(m_currentMetrics.totalTransactions) + " itens (" +
+                            std::to_string(m_currentMetrics.successfulFiles) + "/" +
+                            std::to_string(m_currentMetrics.totalFiles) + " arqs)";
+        ImGui::TextColored(ImVec4(0.96f, 0.97f, 0.99f, 1.0f), "%s", totTx.c_str());
+        if (fonts.fontHeader) ImGui::PopFont();
 
-    // Card 4: Integridade & Criptografia
-    ImGui::TextDisabled("AUDITORIA & INTEGRIDADE");
-    if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
-    ImGui::TextColored(ImVec4(0.10f, 0.80f, 0.55f, 1.0f), "SHA-256 PARITY OK");
-    if (fonts.fontHeader) ImGui::PopFont();
-    ImGui::NextColumn();
+        // Card 4: Integridade & Criptografia
+        ImGui::TableSetColumnIndex(3);
+        ImGui::TextDisabled("AUDITORIA & INTEGRIDADE");
+        if (fonts.fontHeader) ImGui::PushFont(fonts.fontHeader);
+        ImGui::TextColored(ImVec4(0.10f, 0.80f, 0.55f, 1.0f), "SHA-256 PARITY OK");
+        if (fonts.fontHeader) ImGui::PopFont();
 
-    ImGui::Columns(1);
+        ImGui::EndTable();
+    }
+
     ImGui::EndChild();
 }
 

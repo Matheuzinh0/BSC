@@ -18,6 +18,7 @@ test_batch/
 *.swp
 *~
 .DS_Store
+imgui.ini
 
 # AI Agent & Assistant local configurations
 .agent/

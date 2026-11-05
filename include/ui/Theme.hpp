@@ -82,10 +82,12 @@ inline void loadApplicationFonts() {
         cfg.RasterizerMultiply = 1.05f;
 
         // Latin glyph ranges covering standard ASCII + Portuguese accents (á, é, í, ó, ú, ç, ã, õ, etc.)
+        // and typographic symbols (bullets, geometric shapes, currencies)
         static const ImWchar glyphRanges[] = {
             0x0020, 0x00FF, // Basic Latin + Latin Supplement
-            0x2010, 0x205E, // General Punctuation
+            0x2000, 0x206F, // General Punctuation & Bullets
             0x20A0, 0x20CF, // Currency Symbols (R$, €, etc.)
+            0x2500, 0x25FF, // Box Drawing & Geometric Shapes
             0
         };
 

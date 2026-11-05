@@ -526,6 +526,81 @@ void testIntegratedOcrEngine() {
     ASSERT_TRUE(cleaned.find("24/10/2023") != std::string::npos, "Date domain OCR correction '24/1O/2O23' -> '24/10/2023'");
 }
 
+void testUniversalBankAndStackedPdfParsing() {
+    std::cout << "\n--- TEST: Universal All-Bank Recognition & Stacked PDF Layouts ---\n";
+    ofx::parsers::PdfParser parser;
+
+    // Test 1: Stacked mobile statement layout (Nubank / Inter style)
+    std::string stackedMobilePdfText =
+        "BANCO INTER S.A.\n"
+        "Conta Corrente: 1234567-8   Agencia: 0001-9\n"
+        "Extrato de Movimentacao Financeira\n"
+        "02/11/2023\n"
+        "Pix Enviado - Transferencia para Joao\n"
+        "Chave: joao@email.com - ID: E0770000020231102143000\n"
+        "- R$ 85,50\n"
+        "05/11/2023\n"
+        "Pix Recebido de Maria Silva\n"
+        "Chave: 123.456.789-00\n"
+        "+ R$ 450,00\n"
+        "10/11/2023\n"
+        "Pagamento de Fatura Cartao Inter Mastercard\n"
+        "DOC 991203\n"
+        "- R$ 1.250,00\n";
+
+    auto interStmt = parser.parseFromText(stackedMobilePdfText);
+    ASSERT_TRUE(interStmt != nullptr, "Parsed Inter stacked mobile statement");
+    ASSERT_TRUE(interStmt->account.bankId == "077", "Inter Bank ID matched 077");
+    ASSERT_TRUE(interStmt->account.accountId == "1234567-8", "Inter Account ID matches");
+    ASSERT_TRUE(interStmt->transactions.size() == 3, "All 3 stacked transactions extracted");
+    ASSERT_TRUE(interStmt->transactions[0].isDebit(), "Tx 1 is debit");
+    ASSERT_TRUE(std::abs(interStmt->transactions[0].amount - (-85.50)) < 0.001, "Tx 1 amount -85.50");
+    ASSERT_TRUE(interStmt->transactions[1].isCredit(), "Tx 2 is credit");
+    ASSERT_TRUE(std::abs(interStmt->transactions[1].amount - 450.00) < 0.001, "Tx 2 amount 450.00");
+    ASSERT_TRUE(interStmt->transactions[2].isDebit(), "Tx 3 is debit");
+    ASSERT_TRUE(std::abs(interStmt->transactions[2].amount - (-1250.00)) < 0.001, "Tx 3 amount -1250.00");
+
+    // Test 2: Santander 4-column statement with running balance
+    std::string santanderPdfText =
+        "BANCO SANTANDER (BRASIL) S.A.\n"
+        "Agencia: 0123    Conta Corrente: 13.001.234-5\n"
+        "SALDO ANTERIOR                                          1.500,00\n"
+        "Data        Historico                  Docto      Valor (R$)     Saldo (R$)\n"
+        "12/10/2023  TARIFA MENSALIDADE PACOTE  000001        -45,00 D    1.455,00\n"
+        "15/10/2023  TED RECEBIDA REMUNERACAO   889120      3.500,00 C    4.955,00\n"
+        "SALDO FINAL                                             4.955,00\n";
+
+    auto santanderStmt = parser.parseFromText(santanderPdfText);
+    ASSERT_TRUE(santanderStmt != nullptr, "Parsed Santander statement");
+    ASSERT_TRUE(santanderStmt->account.bankId == "033", "Santander Bank ID matched 033");
+    ASSERT_TRUE(santanderStmt->transactions.size() == 2, "Santander 2 transactions extracted");
+    ASSERT_TRUE(santanderStmt->hasInitialBalance && std::abs(santanderStmt->initialBalance - 1500.00) < 0.001, "Initial balance parsed");
+    ASSERT_TRUE(santanderStmt->hasFinalBalance && std::abs(santanderStmt->finalBalance - 4955.00) < 0.001, "Final balance parsed");
+    ASSERT_TRUE(santanderStmt->auditStatus == ofx::core::AuditStatus::VERIFIED, "Santander statement verified by accounting audit engine");
+
+    // Test 3: C6 Bank and BTG Pactual recognition
+    std::string c6Text = "BANCO C6 S.A. Extrato Mensal Conta 1234567-8 Agencia 0001\n10/10/2023 PGTO CONDOMINIO -350,00";
+    auto c6Stmt = parser.parseFromText(c6Text);
+    ASSERT_TRUE(c6Stmt->account.bankId == "336", "C6 Bank ID matched 336");
+
+    std::string btgText = "BANCO BTG PACTUAL S.A. Agencia 0050 Conta 998877-6\n01/10/2023 RENDIMENTO CDB +120,45";
+    auto btgStmt = parser.parseFromText(btgText);
+    ASSERT_TRUE(btgStmt->account.bankId == "208", "BTG Pactual Bank ID matched 208");
+
+    // Test 4: Fintechs & Institutions (Stone, PagBank, Cora, Asaas, PicPay)
+    std::string stoneText = "STONE PAGAMENTOS S.A. Relatorio de Movimentacao\n01/10/2023 VENDAS CARTAO DEBITO +890,00";
+    ASSERT_TRUE(parser.parseFromText(stoneText)->account.bankId == "197", "Stone matched 197");
+
+    std::string pagbankText = "PAGBANK - PAGSEGURO INTERNET S.A.\n01/10/2023 RECARGA CELULAR -30,00";
+    ASSERT_TRUE(parser.parseFromText(pagbankText)->account.bankId == "290", "PagBank matched 290");
+
+    std::string coraText = "CORA SOCIEDADE DE CREDITO DIRETO\n01/10/2023 RECEBIMENTO PIX CLIENTE +1500,00";
+    ASSERT_TRUE(parser.parseFromText(coraText)->account.bankId == "403", "Cora matched 403");
+
+    std::string asaasText = "ASAAS GESTAO FINANCEIRA\n01/10/2023 COBRANCA BOLETO LIQUIDADO +750,00";
+    ASSERT_TRUE(parser.parseFromText(asaasText)->account.bankId == "461", "Asaas matched 461");
+}
+
 int main() {
     std::cout << "========================================================\n";
     std::cout << " EXECUTANDO BATERIA DE TESTES DE CONVERSAO UNIVERSAL\n";
@@ -542,6 +617,7 @@ int main() {
     testPdfUtf16BeHexDecoding();
     testLayoutAgnosticPdfParsing();
     testMercadoLivreStatementParsing();
+    testUniversalBankAndStackedPdfParsing();
     testIntegratedOcrEngine();
 
     std::cout << "\n[================ TODOS OS TESTES PASSARAM! ================]\n";
