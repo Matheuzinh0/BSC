@@ -77,6 +77,7 @@ bool AppWindow::init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
+    loadApplicationFonts();
     applyModernDarkTheme();
 
     ImGui_ImplGlfw_InitForOpenGL(m_window, true);

@@ -58,6 +58,7 @@ private:
     std::shared_ptr<core::Statement> m_inspectedStatement;
     bool m_showInspectModal = false;
     bool m_showAboutModal = false;
+    std::string m_quickExportStatusMsg;
 
     // Directory selection modal
     bool m_showDirPickerModal = false;
